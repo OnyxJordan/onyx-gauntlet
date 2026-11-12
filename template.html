@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Onyx Odds — Mini Games Gauntlet</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --purple:#9c3fff;--purple-deep:#5b1e9e;--blue:#4f6fff;--green:#22c55e;
+  --gold:#f5b312;--gold-hi:#ffd75e;--gold-deep:#c78a00;
+  --bg:#0e0e14;--nav-bg:#13131c;--surface:#1a1a26;--surface2:#20202e;
+  --border:#2a2a3a;--border2:#32324a;--text:#f0f0f8;--muted:#6b6b8a;--muted2:#9090aa;
+}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+nav{background:var(--nav-bg);border-bottom:1px solid var(--border);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.nav-brand{display:flex;flex-direction:column;line-height:1}
+.nav-brand-name{font-size:18px;font-weight:700;color:#fff;letter-spacing:.04em}
+.nav-right{display:flex;align-items:center;gap:10px}
+.nav-badge{background:transparent;border:1px solid var(--gold);color:var(--gold);font-size:12px;font-weight:600;padding:6px 14px;border-radius:20px;letter-spacing:.02em}
+.logo-mark{width:34px;height:34px;perspective:340px;overflow:visible;flex-shrink:0}
+.logo-3d{position:relative;width:34px;height:34px;transform-style:preserve-3d;animation:logoSpin 4s linear infinite}
+.bar{position:absolute;left:50%;top:50%;transform-style:preserve-3d}
+.bar i{position:absolute;top:-13.5px;left:-5px;width:10px;height:27px;border-radius:2.5px;display:block}
+.bar .fc{transform:translateZ(5px)}.bar .bc{transform:rotateY(180deg) translateZ(5px)}
+.bar .rc{transform:rotateY(90deg) translateZ(5px)}.bar .lc{transform:rotateY(-90deg) translateZ(5px)}
+.bar-l{transform:translateX(-6px) rotateZ(8deg)}.bar-r{transform:translateX(6px) rotateZ(8deg)}
+.bar-l .fc{background:linear-gradient(155deg,#c879ff,#9a3fe0)}.bar-l .bc{background:#5e2a8c}
+.bar-l .lc,.bar-l .rc{background:linear-gradient(#8f3acf,#6d2aa8)}
+.bar-r .fc{background:linear-gradient(155deg,#8079ff,#5249e6)}.bar-r .bc{background:#332c9e}
+.bar-r .lc,.bar-r .rc{background:linear-gradient(#5650e0,#3f39c2)}
+@keyframes logoSpin{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
+.hero-strip{background:radial-gradient(ellipse 70% 120% at 20% 0%,rgba(156,63,255,0.22),transparent 60%),linear-gradient(90deg,rgba(91,30,158,0.35),rgba(79,111,255,0.12),transparent);border-bottom:1px solid var(--border);padding:22px 32px;display:flex;align-items:center;gap:16px}
+.hero-badge{display:inline-flex;flex-direction:column;background:linear-gradient(160deg,#6a24b8,#3c1470);border:2px solid var(--gold);border-radius:14px;padding:12px 22px;box-shadow:0 0 0 3px rgba(245,179,18,0.15),0 6px 18px rgba(0,0,0,0.5),inset 0 1px 0 rgba(255,255,255,0.15);position:relative}
+.hero-badge::after{content:'';position:absolute;top:-7px;right:18px;width:9px;height:9px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--gold-hi),var(--gold-deep));box-shadow:0 0 8px rgba(245,179,18,0.7)}
+.hero-kicker{font-size:10px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);text-shadow:0 1px 0 rgba(0,0,0,0.4);margin-bottom:3px}
+.hero-title{font-size:24px;font-weight:900;letter-spacing:.03em;text-transform:uppercase;color:#fff;background:linear-gradient(180deg,#ffffff 55%,#d8d8ee);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;filter:drop-shadow(0 2px 0 rgba(0,0,0,0.45)) drop-shadow(0 0 14px rgba(245,179,18,0.25));line-height:1.05}
+.hero-meta{display:flex;flex-direction:column;gap:4px}
+.hero-label{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2)}
+.hero-time{font-size:12px;color:var(--green);font-weight:500;letter-spacing:.04em}
+.section-bar{height:3px;background:linear-gradient(90deg,var(--purple),var(--gold),var(--blue),var(--green),transparent)}
+.main{max-width:900px;margin:0 auto;padding:28px 24px 60px}
+.controls{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+.search-wrap{flex:1;min-width:200px;position:relative}
+.search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.4;pointer-events:none}
+input[type=text]{width:100%;background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:10px 12px 10px 38px;font-size:13px;outline:none;font-family:inherit;transition:border-color .2s}
+input[type=text]::placeholder{color:var(--muted)}
+input[type=text]:focus{border-color:var(--gold)}
+select{background:var(--surface);border:1px solid var(--border2);border-radius:8px;color:var(--text);padding:10px 12px;font-size:13px;outline:none;font-family:inherit;cursor:pointer;transition:border-color .2s}
+select:focus{border-color:var(--gold)}
+.showing{font-size:12px;color:var(--muted);margin-bottom:10px}
+.table-wrap{border:1px solid var(--border);border-radius:10px;overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead{background:var(--surface2)}
+thead th{padding:11px 16px;text-align:left;font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.1em;border-bottom:1px solid var(--border);font-weight:500;cursor:pointer;white-space:nowrap;user-select:none;transition:color .15s}
+thead th:hover{color:var(--text)}
+thead th.sorted{color:var(--gold)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--surface2)}
+tbody tr.top1{background:rgba(245,179,18,0.06)}
+tbody tr.top2{background:rgba(156,63,255,0.06)}
+tbody tr.top3{background:rgba(79,111,255,0.05)}
+tbody tr.top1:hover,tbody tr.top2:hover,tbody tr.top3:hover{background:var(--surface2)}
+td{padding:11px 16px;vertical-align:middle}
+.empty-state{padding:48px 16px;text-align:center;color:var(--muted)}
+.empty-state .es-title{font-size:15px;font-weight:600;color:var(--muted2);margin-bottom:6px}
+.empty-state .es-sub{font-size:13px;color:var(--muted)}
+.rnum{font-size:13px;color:var(--muted);font-weight:500;min-width:24px;text-align:right}
+.medal{width:24px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.medal-1{background:linear-gradient(135deg,var(--gold-hi),var(--gold-deep));color:#3a2800;box-shadow:0 0 10px rgba(245,179,18,0.45)}
+.medal-2{background:linear-gradient(135deg,var(--purple),var(--blue));color:#fff}
+.medal-3{background:linear-gradient(135deg,var(--blue),#7ab4ff);color:#fff}
+.uname{font-family:'Courier New',monospace;font-size:12px;color:var(--muted2);letter-spacing:.04em}
+.prize-col{text-align:right}
+.prize-chip{display:inline-block;background:rgba(245,179,18,0.1);border:1px solid rgba(245,179,18,0.3);color:var(--gold);font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;letter-spacing:.02em}
+.prize-none{color:var(--border2);font-size:13px}
+.pages{display:flex;align-items:center;gap:10px;margin-top:18px;justify-content:center}
+.pages button{background:var(--surface);border:1px solid var(--border2);color:var(--muted2);border-radius:8px;padding:7px 20px;cursor:pointer;font-size:12px;font-family:inherit;font-weight:500;transition:all .15s}
+.pages button:hover{border-color:var(--gold);color:var(--gold)}
+.pages button:disabled{opacity:.35;cursor:default;border-color:var(--border2);color:var(--muted)}
+.pages span{min-width:100px;text-align:center;font-size:12px;color:var(--muted)}
+@media(max-width:560px){.hero-strip{flex-direction:column;align-items:flex-start;gap:10px}.hero-title{font-size:20px}}
+</style>
+<meta property="og:title" content="Onyx Odds — Mini Games Gauntlet" data-id="th-modified" ><meta property="og:image" content="https://onyxgamesgauntlet.tiiny.site/og-image.jpg" data-id="th-modified" ><meta property="og:image:width" content="400" data-id="th-modified" ><meta property="og:image:height" content="400" data-id="th-modified" ><meta property="og:image:type" content="image/jpeg" data-id="th-modified" ><meta property="og:url" content="https://onyxgamesgauntlet.tiiny.site/" data-id="th-modified" ><meta property="og:type" content="website" data-id="th-modified" ><script defer data-domain="onyxgamesgauntlet.tiiny.site" src="https://analytics.tiiny.net/js/plausible.js"></script></head>
+<body>
+<nav>
+  <a href="https://app.onyxodds.com/" target="_blank" style="text-decoration:none;display:flex;align-items:center;gap:10px">
+    <div class="logo-mark" id="logo-mark"></div>
+    <div class="nav-brand"><span class="nav-brand-name">ONYX</span></div>
+  </a>
+  <div class="nav-right"><div class="nav-badge">Mini Games</div></div>
+</nav>
+<div class="hero-strip">
+  <div class="hero-badge">
+    <div class="hero-kicker">Mini Games</div>
+    <div class="hero-title">Gauntlet</div>
+  </div>
+  <div class="hero-meta">
+    <div class="hero-label">Rankings</div>
+    <div class="hero-time">__UPDATED__</div>
+  </div>
+</div>
+<div class="section-bar"></div>
+<div class="main">
+  <div class="controls">
+    <div class="search-wrap">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.35-4.35"></path></svg>
+      <input type="text" id="srch" placeholder="Search username..." >
+    </div>
+    <select id="ps">
+      <option value="25">25 / page</option>
+      <option value="50">50 / page</option>
+      <option value="100">100 / page</option>
+      <option value="250">250 / page</option>
+    </select>
+  </div>
+  <div class="showing" id="show"></div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th id="th-r" class="sorted" onclick="sb('r')"># &uarr;</th>
+        <th id="th-u" onclick="sb('u')">Player</th>
+        <th id="th-p" style="text-align:right" onclick="sb('p')">Prize</th>
+      </tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
+  <div class="pages">
+    <button onclick="go(-1)">&larr; Prev</button>
+    <span id="pi"></span>
+    <button onclick="go(1)">Next &rarr;</button>
+  </div>
+</div>
+<script>
+(function(){var m=document.getElementById('logo-mark');if(!m)return;var b='<i class="fc"></i><i class="bc"></i><i class="lc"></i><i class="rc"></i>';m.innerHTML='<div class="logo-3d"><div class="bar bar-l">'+b+'</div><div class="bar bar-r">'+b+'</div></div>';})();
+var ALL=__DATA__;
+var fil=ALL.slice(),sk='r',sd=1,pg=1,ps=25;
+document.getElementById('srch').addEventListener('input',function(){pg=1;render()});
+document.getElementById('ps').addEventListener('change',function(e){ps=+e.target.value;pg=1;render()});
+function sb(k){sd=sk===k?-sd:(k==='r'?1:-1);sk=k;pg=1;render()}
+function go(d){var t=Math.max(1,Math.ceil(fil.length/ps));pg=Math.max(1,Math.min(t,pg+d));render()}
+function render(){
+  var q=document.getElementById('srch').value.toLowerCase();
+  fil=q?ALL.filter(function(r){return r.u.toLowerCase().indexOf(q)>=0}):ALL.slice();
+  fil.sort(function(a,b){return sk==='u'?a.u.localeCompare(b.u)*sd:(a[sk]-b[sk])*sd});
+  var tot=Math.max(1,Math.ceil(fil.length/ps)),st=(pg-1)*ps,sl=fil.slice(st,st+ps);
+  document.getElementById('show').textContent=fil.length?('Showing '+(st+1)+'–'+Math.min(st+ps,fil.length)+' of '+fil.length.toLocaleString()+' players'):'0 players';
+  ['r','u','p'].forEach(function(k){
+    var el=document.getElementById('th-'+k);
+    var lb={r:'#',u:'Player',p:'Prize'};
+    el.className=sk===k?'sorted':'';
+    el.innerHTML=lb[k]+(sk===k?(sd===1?' &uarr;':' &darr;'):'');
+    if(k==='p')el.style.textAlign='right';
+  });
+  if(!fil.length){
+    document.getElementById('tb').innerHTML='<tr><td colspan="3"><div class="empty-state"><div class="es-title">No matches</div><div class="es-sub">No players found for that search.</div></div></td></tr>';
+  } else {
+    document.getElementById('tb').innerHTML=sl.map(function(r){
+      var rankCell;
+      if(r.r===1)rankCell='<span class="medal medal-1">1</span>';
+      else if(r.r===2)rankCell='<span class="medal medal-2">2</span>';
+      else if(r.r===3)rankCell='<span class="medal medal-3">3</span>';
+      else rankCell='<span class="rnum">'+r.r+'</span>';
+      var cls=r.r<=3?'top'+r.r:'';
+      var prizeStr=r.p>0?'<span class="prize-chip">'+r.p.toLocaleString()+'</span>':'<span class="prize-none">—</span>';
+      return '<tr class="'+cls+'"><td>'+rankCell+'</td><td><span class="uname">'+r.u+'</span></td><td class="prize-col">'+prizeStr+'</td></tr>';
+    }).join('');
+  }
+  document.getElementById('pi').textContent='Page '+pg+' of '+tot;
+  document.querySelectorAll('.pages button')[0].disabled=pg<=1;
+  document.querySelectorAll('.pages button')[1].disabled=pg>=tot;
+}
+render();
+</script>
+</body>
+</html>

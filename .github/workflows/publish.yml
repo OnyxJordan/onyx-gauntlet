@@ -1,0 +1,83 @@
+# Onyx Odds, Mini Games Gauntlet leaderboard.
+# Fetches standings, renders index.html and commits it. GitHub Pages serves the
+# commit, so publishing is a push and there is no hosting API key involved.
+#
+# The schedule is deliberately commented out. Uncomment it once BOTH are true:
+#   1. RETOOL_WEBHOOK_URL and RETOOL_WORKFLOW_KEY are set in repo secrets,
+#      otherwise every run just fails and mails you about it.
+#   2. "ThirdPartyBet" has an index leading with createdAt. Without one the
+#      standings query scans all 38 GB of that table on the production primary,
+#      so an hourly job means 24 full scans a day. See README section 5.
+# Hourly at :05 is the safe starting point.
+name: publish
+
+on:
+  # schedule:
+  #   - cron: "5 * * * *"
+  workflow_dispatch:
+    inputs:
+      final:
+        description: 'Say "Final Standings as of" instead of "Updated as of"'
+        type: boolean
+        default: false
+      dry_run:
+        description: "Render and show the diff, but do not commit"
+        type: boolean
+        default: false
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check the webhook secret is set
+        env:
+          HOOK: ${{ secrets.RETOOL_WEBHOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "::error::RETOOL_WEBHOOK_URL is not set. See README section 4."
+            exit 1
+          fi
+
+      - name: Build the page
+        env:
+          RETOOL_WEBHOOK_URL: ${{ secrets.RETOOL_WEBHOOK_URL }}
+          RETOOL_WORKFLOW_KEY: ${{ secrets.RETOOL_WORKFLOW_KEY }}
+        run: |
+          args="--source retool"
+          [ "${{ inputs.final }}" = "true" ] && args="$args --final"
+          python3 build.py $args
+
+      - name: Commit if the standings changed
+        run: |
+          git config user.name "onyx-gauntlet-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && echo "no change" && exit 0
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "dry run, not committing. Diff stat:"
+            git diff --cached --stat
+            exit 0
+          fi
+          git commit -m "Standings $(TZ=America/New_York date '+%Y-%m-%d %H:%M %Z')"
+          git push
+
+      - name: Keep the rendered page as a run artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: index-html
+          path: index.html
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,0 +1,29 @@
+{
+  "_comment": "The current Gauntlet round. This is the only file that changes between rounds.",
+
+  "_window_comment": "Inclusive YYYY-MM-DD bounds, Eastern. Must match the Custom range you set on the dashboard's Leaderboard tab.",
+  "start_date": "2026-11-12",
+  "end_date": "2026-11-18",
+
+  "_prizes_comment": "Keys are a rank ('7') or an inclusive range ('10-20'). 'pool' is a checksum: the build aborts if the ladder does not sum to it. These values mirror PRIZE_TABLE in the dashboard's frontend/utils/format.ts, so change both together.",
+  "cap": 1000,
+  "pool": 10000,
+  "prizes": {
+    "1": 2500,
+    "2": 2000,
+    "3": 1500,
+    "4": 1000,
+    "5": 750,
+    "6": 500,
+    "7": 250,
+    "8": 200,
+    "9": 200,
+    "10-20": 100
+  },
+
+  "_affiliate_comment": "An affiliate is a user whose id owns a Promotion. Excluded, so they neither rank nor are owed a prize. On the dashboard this is the Affiliates toggle, which defaults to All and must be set to Exclude before exporting by hand.",
+  "exclude_affiliates": true,
+
+  "_final_comment": "Set true for the closing update of a round. Changes the hero line to 'Final Standings as of'.",
+  "final": false
+}
