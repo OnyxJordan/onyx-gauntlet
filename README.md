@@ -9,6 +9,9 @@ path. Every version of the page is in git history.
 **Live at:** `https://onyxjordan.github.io/onyx-gauntlet/`
 (enable under Settings → Pages → Source `main`, folder `/ (root)`)
 
+**Setting this up, or finishing the automation? Start with [`SETUP.md`](./SETUP.md).**
+It says where each step happens, since they land across four different places.
+
 ---
 
 ## 1. Where the numbers come from
@@ -116,15 +119,21 @@ It also lands on the **production primary**. Despite its name, the
 `analytics-reader` resource is not a replica: `pg_is_in_recovery()` returns
 false. It is the primary, reached as the `postgres-readonly` user.
 
-One index fixes it, created on the primary by an admin user:
+One index fixes it:
 
 ```sql
 CREATE INDEX CONCURRENTLY "ThirdPartyBet_createdAt_idx"
   ON "ThirdPartyBet" ("createdAt");
 ```
 
-`CONCURRENTLY` avoids locking writes, but on a table this size it will take a
-while. Run it off-peak. Until it exists, publish by hand rather than hourly.
+**This cannot be run from Retool.** Postgres requires table ownership to add an
+index, `"ThirdPartyBet"` is owned by `svc_migrator`, and neither resource
+qualifies: `analytics-reader` connects as `postgres-readonly`, and
+`appDatabaseWrite` connects as `retool_user`, which is not a superuser and a
+member of no roles. It needs an infra credential. `SETUP.md` stage 1 has the
+request to send, the caveats to send with it, and how to confirm it landed.
+
+Until it exists, publish by hand rather than hourly.
 
 ## 6. Files
 
