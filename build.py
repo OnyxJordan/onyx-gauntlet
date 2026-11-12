@@ -169,7 +169,7 @@ def from_retool(cfg, timeout=180):
         req.add_header("X-Workflow-Api-Key", key)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return usernames(unwrap(json.loads(resp.read().decode())))
+            raw = resp.read().decode()
     except urllib.error.HTTPError as exc:
         detail = exc.read()[:400].decode(errors="replace")
         if "1010" in detail:
@@ -178,6 +178,25 @@ def from_retool(cfg, timeout=180):
         raise SystemExit(f"Retool webhook returned HTTP {exc.code}: {detail}")
     except urllib.error.URLError as exc:
         raise SystemExit(f"Retool webhook unreachable: {exc.reason}")
+
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError:
+        raise SystemExit(f"Retool webhook did not return JSON. First 300 chars:\n{raw[:300]}")
+
+    rows = unwrap(payload)
+    if not rows:
+        # A webhook workflow with no Response block answers instantly with a run
+        # id and executes in the background, so the caller gets no standings.
+        hint = ""
+        if isinstance(payload, dict) and any(
+                k in payload for k in ("workflowRunId", "runId", "workflow_run_id")):
+            hint = ("\nThat is a run id, not standings. The workflow has no Response "
+                    "block, so it answered immediately and ran in the background. "
+                    "Add a Response block returning code1's data, then publish.")
+        raise SystemExit("Retool webhook returned no standings rows. "
+                         f"It returned:\n{json.dumps(payload)[:300]}{hint}")
+    return usernames(rows)
 
 
 # --------------------------------------------------------------------------
