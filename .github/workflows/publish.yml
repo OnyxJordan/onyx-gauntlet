@@ -6,16 +6,17 @@
 # prevention, so a commit from this job would never wake pages.yml and the site
 # would sit stale behind the repo. Doing both in one job removes the chaining.
 #
-# The schedule is deliberately commented out. Uncomment it once BOTH are true:
-#   1. RETOOL_WEBHOOK_URL and RETOOL_WORKFLOW_KEY are set in repo secrets.
-#   2. "ThirdPartyBet" has an index leading with createdAt. Without one the
-#      standings query takes ~64 seconds scanning 38 GB on the production
-#      primary, every run. See README section 5.
+# Runs every 3 hours rather than hourly, because the standings query currently
+# costs ~63 seconds scanning all 38 GB of "ThirdPartyBet" on the production
+# primary. Every 3 hours is 8 runs a day, about 8 minutes of scanning; hourly
+# would be 25. Once that table has an index leading with createdAt the query
+# becomes near-instant and this can safely go to "5 * * * *" or faster.
+# See README section 5.
 name: publish
 
 on:
-  # schedule:
-  #   - cron: "5 * * * *"
+  schedule:
+    - cron: "5 */3 * * *"
   workflow_dispatch:
     inputs:
       final:

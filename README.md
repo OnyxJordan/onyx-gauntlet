@@ -105,7 +105,15 @@ When that looks right, run it again without dry_run.
 The schedule in `.github/workflows/publish.yml` is commented out on purpose.
 Uncomment it only after section 5.
 
-## 5. Read this before enabling the schedule
+## 5. The schedule, and the index that would make it faster
+
+**The schedule is on**, every 3 hours at five past, in
+`.github/workflows/publish.yml`. Trigger it on demand any time from the Actions
+tab.
+
+Three hours rather than hourly for one reason, explained below. It is one line
+to change if you want it faster.
+
 
 `"ThirdPartyBet"` is roughly 37 million rows across 38 GB, and **no index on it
 leads with `createdAt`**. The nearest is `("userId", "createdAt" DESC)`, which
@@ -133,7 +141,12 @@ qualifies: `analytics-reader` connects as `postgres-readonly`, and
 member of no roles. It needs an infra credential. `SETUP.md` stage 1 has the
 request to send, the caveats to send with it, and how to confirm it landed.
 
-Until it exists, publish by hand rather than hourly.
+**Measured: 63 seconds per run.** Every 3 hours is 8 runs a day, roughly 8
+minutes of scanning. Hourly would be 25 minutes a day, every 30 minutes would
+be 50. With the index, any of those stop mattering.
+
+Nothing is broken without it. The schedule is just set conservatively, and the
+index is what would let you raise it.
 
 ## 6. Files
 

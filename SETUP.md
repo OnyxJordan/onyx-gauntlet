@@ -43,8 +43,18 @@ carries real usernames alongside handle, paid and net.
 
 **Where: the database, through whoever administers it. Not Retool.**
 
-This is the only thing standing between you and a scheduled job, and it is the
-one step you cannot do yourself from any tool you currently have open.
+**This is optional.** The automation runs without it, every 3 hours. The index
+is what would let it run hourly or faster, and would stop each run costing a
+full read of the biggest table in the database.
+
+### In one paragraph, for forwarding
+
+The bets table is 38 GB and 37 million rows. The leaderboard asks for
+everything inside a date range. There is no index on the date column, so
+Postgres reads every row and checks each one, which takes about 63 seconds and
+reads the whole table. Adding an index on that column is a single command, does
+not alter any data, does not lock writes, and would make the query close to
+instant.
 
 ### Why it is needed
 
@@ -149,25 +159,32 @@ workflow with a webhook trigger.
 8. Open the webhook trigger's config panel and copy two values: the **webhook
    URL** and the **workflow API key**. Keep them for stage 3.
 
-### Known limitation: the dates are written into the query
+### The round dates are fixed in the query, by choice
 
-The workflow as built has the round's dates **hardcoded** in the SQL rather than
-read from the request body. So when a round ends, someone has to open the
-workflow in Retool and edit those two dates. `round.json` in this repo does not
-drive it yet.
+Each round has a definite start and end, so the dates are written into the
+Retool SQL rather than passed in at call time:
 
-This was not the plan. Passing `{{ startTrigger.data.startDate }}` failed with
-`cannot cast type integer to date`, which is Postgres saying it received `0`
-rather than a date string, so the binding was not resolving. Reproduced exactly:
-`SELECT 0::date` gives that same message, character for character.
+```sql
+WHERE tpb."createdAt" >= '2026-11-12'::date::timestamp AT TIME ZONE 'America/New_York'
+  AND tpb."createdAt" <  ('2026-11-18'::date + 1)::timestamp AT TIME ZONE 'America/New_York'
+```
 
-To fix it properly, find what the trigger data actually looks like in this
-Retool version: set `code1` to `return startTrigger.data`, run the workflow, and
-read the output. Then put the right reference back into the query in place of
-the hardcoded dates.
+The end date is hard, which is the point: once a round closes, the standings
+stop moving even if people keep playing. Nothing drifts.
 
-Until that is done, **changing the round means editing two places**: `round.json`
-here, and the dates in the Retool query.
+**Starting a new round means editing two places**, and both must agree:
+
+1. `round.json` here: `start_date` and `end_date`
+2. The two dates in the Retool query
+
+`round.json` is the written record and drives nothing about the query, so if
+they disagree the page will quietly rank the wrong window. Change them
+together, in the same sitting.
+
+(For the record, passing dates in at call time was tried and did not work:
+`{{ startTrigger.data.startDate }}` arrived as `0`, giving
+`cannot cast type integer to date`. Fixed dates are the better fit for this
+anyway.)
 
 ### Measured cost
 
