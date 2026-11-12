@@ -1,14 +1,16 @@
 # Onyx Odds, Mini Games Gauntlet leaderboard.
-# Fetches standings, renders index.html and commits it. GitHub Pages serves the
-# commit, so publishing is a push and there is no hosting API key involved.
+# Fetches standings, renders index.html, commits it AND deploys it to Pages.
+#
+# The deploy lives here rather than in pages.yml on purpose. A push made with
+# GITHUB_TOKEN does not trigger `on: push` workflows, which is GitHub's loop
+# prevention, so a commit from this job would never wake pages.yml and the site
+# would sit stale behind the repo. Doing both in one job removes the chaining.
 #
 # The schedule is deliberately commented out. Uncomment it once BOTH are true:
-#   1. RETOOL_WEBHOOK_URL and RETOOL_WORKFLOW_KEY are set in repo secrets,
-#      otherwise every run just fails and mails you about it.
+#   1. RETOOL_WEBHOOK_URL and RETOOL_WORKFLOW_KEY are set in repo secrets.
 #   2. "ThirdPartyBet" has an index leading with createdAt. Without one the
-#      standings query scans all 38 GB of that table on the production primary,
-#      so an hourly job means 24 full scans a day. See README section 5.
-# Hourly at :05 is the safe starting point.
+#      standings query takes ~64 seconds scanning 38 GB on the production
+#      primary, every run. See README section 5.
 name: publish
 
 on:
@@ -21,20 +23,27 @@ on:
         type: boolean
         default: false
       dry_run:
-        description: "Render and show the diff, but do not commit"
+        description: "Render and show the diff, but do not commit or deploy"
         type: boolean
         default: false
 
+# Shared with pages.yml so a hand edit and a scheduled publish cannot deploy
+# over each other.
 concurrency:
-  group: publish
+  group: pages
   cancel-in-progress: false
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -46,7 +55,7 @@ jobs:
           HOOK: ${{ secrets.RETOOL_WEBHOOK_URL }}
         run: |
           if [ -z "$HOOK" ]; then
-            echo "::error::RETOOL_WEBHOOK_URL is not set. See README section 4."
+            echo "::error::RETOOL_WEBHOOK_URL is not set. See SETUP.md stage 3."
             exit 1
           fi
 
@@ -64,7 +73,10 @@ jobs:
           git config user.name "onyx-gauntlet-bot"
           git config user.email "actions@users.noreply.github.com"
           git add index.html
-          git diff --cached --quiet && echo "no change" && exit 0
+          if git diff --cached --quiet; then
+            echo "no change"
+            exit 0
+          fi
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             echo "dry run, not committing. Diff stat:"
             git diff --cached --stat
@@ -81,3 +93,29 @@ jobs:
           path: index.html
           if-no-files-found: ignore
           retention-days: 14
+
+      # Deploy steps below are skipped on a dry run, so a dry run can never
+      # change what the public sees.
+      - name: Turn Pages on if it is not already
+        if: ${{ inputs.dry_run != true }}
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Refuse to deploy a broken page
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          test -s index.html || { echo "::error::index.html is missing or empty"; exit 1; }
+          if grep -q "__DATA__\|__UPDATED__" index.html; then
+            echo "::error::index.html still contains template placeholders"
+            exit 1
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        if: ${{ inputs.dry_run != true }}
+        with:
+          path: .
+
+      - id: deployment
+        if: ${{ inputs.dry_run != true }}
+        uses: actions/deploy-pages@v4
