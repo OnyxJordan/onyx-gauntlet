@@ -159,14 +159,23 @@ def from_retool(cfg, timeout=180):
     }).encode()
     req = urllib.request.Request(url, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
+    req.add_header("Accept", "application/json")
+    # Retool sits behind Cloudflare, which rejects urllib's default
+    # "Python-urllib/3.x" agent with 403 "error code: 1010" before the request
+    # ever reaches Retool. Any ordinary agent string gets through.
+    req.add_header("User-Agent",
+                   "onyx-gauntlet/1.0 (+https://github.com/OnyxJordan/onyx-gauntlet)")
     if key:
         req.add_header("X-Workflow-Api-Key", key)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return usernames(unwrap(json.loads(resp.read().decode())))
     except urllib.error.HTTPError as exc:
-        raise SystemExit(f"Retool webhook returned HTTP {exc.code}: "
-                         f"{exc.read()[:400].decode(errors='replace')}")
+        detail = exc.read()[:400].decode(errors="replace")
+        if "1010" in detail:
+            detail += ("\nThat is Cloudflare blocking the client, not Retool refusing "
+                       "the key. Check the User-Agent header above still looks ordinary.")
+        raise SystemExit(f"Retool webhook returned HTTP {exc.code}: {detail}")
     except urllib.error.URLError as exc:
         raise SystemExit(f"Retool webhook unreachable: {exc.reason}")
 

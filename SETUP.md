@@ -149,6 +149,36 @@ workflow with a webhook trigger.
 8. Open the webhook trigger's config panel and copy two values: the **webhook
    URL** and the **workflow API key**. Keep them for stage 3.
 
+### Known limitation: the dates are written into the query
+
+The workflow as built has the round's dates **hardcoded** in the SQL rather than
+read from the request body. So when a round ends, someone has to open the
+workflow in Retool and edit those two dates. `round.json` in this repo does not
+drive it yet.
+
+This was not the plan. Passing `{{ startTrigger.data.startDate }}` failed with
+`cannot cast type integer to date`, which is Postgres saying it received `0`
+rather than a date string, so the binding was not resolving. Reproduced exactly:
+`SELECT 0::date` gives that same message, character for character.
+
+To fix it properly, find what the trigger data actually looks like in this
+Retool version: set `code1` to `return startTrigger.data`, run the workflow, and
+read the output. Then put the right reference back into the query in place of
+the hardcoded dates.
+
+Until that is done, **changing the round means editing two places**: `round.json`
+here, and the dates in the Retool query.
+
+### Measured cost
+
+On 2026-11-12 the `standings` block took **64 seconds** for a round window of a
+few hours, returning 785 rows. The block timeout is set to 120 seconds, so there
+is under 2x headroom, and the query gets slower as a round accumulates play.
+
+That is 64 seconds of scanning a 38 GB table on the production primary per run.
+Hourly, roughly 26 minutes a day of it. Stage 1 is what fixes this; until the
+index exists, run the publish workflow by hand rather than on a schedule.
+
 Re-run `--print-sql retool` and re-paste whenever `round.json` changes.
 
 ---
