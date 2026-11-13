@@ -15,8 +15,12 @@
 name: publish
 
 on:
-  schedule:
-    - cron: "5 */3 * * *"
+  # Off until "ThirdPartyBet" has an index on createdAt. Retool caps a
+  # synchronous webhook response at 120 seconds and the standings query now
+  # exceeds that, so every scheduled run fails and mails about it. Turn this
+  # back on the day the index lands.
+  # schedule:
+  #   - cron: "5 */3 * * *"
   workflow_dispatch:
     inputs:
       final:
