@@ -117,155 +117,72 @@ Two rows means it worked. One row, the `userId` one, means it did not.
 
 ---
 
-## Stage 2. The Retool workflow
+## The Retool side: two workflows
 
-**Where: Retool, retoolonyx.retool.com, the Workflows section in the left nav.
-Not the dashboard app.**
+**Both are built and published as of 2026-11-13.** This records what they are,
+so they can be rebuilt or understood later.
 
-The dashboard cannot be called from outside Retool, so the query gets its own
-workflow with a webhook trigger.
+### `gauntlet-refresh` (schedule, hourly)
 
-1. **Workflows** → **Create new**. Name it `gauntlet-standings`.
-2. Trigger type: **Webhook**.
-3. Add a **SQL query** block. Rename it to exactly `standings`, because the
-   return block refers to it by name. Resource: **analytics-reader**.
-4. Do not retype the query. Generate it, so it cannot drift from
-   `standings.sql` in this repo:
+Does the slow work, with nothing waiting on it.
 
-   ```bash
-   python3 build.py --print-sql retool
-   ```
+- Trigger: **Schedule**, hourly. Webhook trigger off.
+- Block `standings`: Resource query on **analytics-reader**, the full standings
+  SQL with the round's dates written in. Block timeout **600000**.
+  Regenerate it any time with `python3 build.py --print-sql retool`, then
+  replace the two `{{ startTrigger.data... }}` bindings with the literal dates,
+  since a scheduled workflow has no incoming request to read them from.
+- Block `query1`: Resource query on **retool_db**:
 
-   That prints it with this round's `cap` as the `LIMIT`, the affiliate
-   exclusion applied, and Retool's `{{ startTrigger.data.startDate }}` bindings
-   already in place. Paste the output in as-is.
+  ```sql
+  INSERT INTO gauntlet_standings (id, refreshed_at, round_start, round_end, row_count, payload)
+  VALUES (1, now(), '2026-11-12', '2026-11-18', {{ standings.data.length }}, {{ JSON.stringify(standings.data) }}::jsonb)
+  ON CONFLICT (id) DO UPDATE SET
+    refreshed_at = EXCLUDED.refreshed_at,
+    round_start  = EXCLUDED.round_start,
+    round_end    = EXCLUDED.round_end,
+    row_count    = EXCLUDED.row_count,
+    payload      = EXCLUDED.payload
+  ```
 
-   No terminal handy? The same query is in `standings.sql`, but you would have
-   to substitute the markers by hand. Generating it is safer.
+### `gauntlet-standings` (webhook)
 
-5. In that block's settings, set the **timeout to 120 seconds or more**. The
-   default is too short for an unindexed scan of this table.
-6. Add a **Response** block, or set the workflow's return value, to:
+What GitHub calls. Reads the parked copy only, so it answers in about 200ms and
+never approaches Retool's 120 second synchronous cap.
 
-   ```js
-   return { standings: formatDataAsArray(standings.data) }
-   ```
+- Trigger: **Webhook**. Schedule off.
+- Block `standings`: Resource query on **retool_db**:
+  `SELECT payload, refreshed_at FROM gauntlet_standings WHERE id = 1`
+- Block `code1`: `return { standings: standings.data[0].payload, refreshed_at: standings.data[0].refreshed_at }`
+- Block `response1`: Status code `200`, Return body `code1.data` (no braces,
+  that field is an expression box).
 
-   `formatDataAsArray` does nothing if the block already returns row objects,
-   and fixes it if the resource returns column-oriented data. Safe either way.
+### The storage table
 
-7. Click **Deploy**. A workflow that is saved but not deployed will not answer
-   its webhook.
-8. Open the webhook trigger's config panel and copy two values: the **webhook
-   URL** and the **workflow API key**. Keep them for stage 3.
-
-### The round dates are fixed in the query, by choice
-
-Each round has a definite start and end, so the dates are written into the
-Retool SQL rather than passed in at call time:
+In `retool_db`, created 2026-11-13. One row, id always 1.
 
 ```sql
-WHERE tpb."createdAt" >= '2026-11-12'::date::timestamp AT TIME ZONE 'America/New_York'
-  AND tpb."createdAt" <  ('2026-11-18'::date + 1)::timestamp AT TIME ZONE 'America/New_York'
+CREATE TABLE IF NOT EXISTS gauntlet_standings (
+  id           integer PRIMARY KEY DEFAULT 1,
+  refreshed_at timestamptz NOT NULL DEFAULT now(),
+  round_start  date,
+  round_end    date,
+  row_count    integer,
+  payload      jsonb NOT NULL,
+  CONSTRAINT gauntlet_standings_single_row CHECK (id = 1)
+);
 ```
 
-The end date is hard, which is the point: once a round closes, the standings
-stop moving even if people keep playing. Nothing drifts.
+### Things that cost time, so they are written down
 
-**Starting a new round means editing two places**, and both must agree:
+- A **Resource query** block runs SQL; a **Code** block runs JavaScript. Pasting
+  SQL into a Code block gives `SyntaxError: Unexpected identifier 'INTO'`.
+- Block names are **case sensitive** in `{{ }}` references.
+- The small **▶** on a block runs it from the browser and dies on a long query
+  with `Internal Error running a block: Failed to fetch`. Use the top **Run**.
+- A webhook workflow with no **Response** block returns a run id immediately and
+  runs in the background, so the caller gets no data.
+- Retool is behind Cloudflare, which rejects Python's default user agent with
+  `403 error code: 1010`. `build.py` sends an ordinary one.
+- An unpublished change does not affect the live webhook. Publish after editing.
 
-1. `round.json` here: `start_date` and `end_date`
-2. The two dates in the Retool query
-
-`round.json` is the written record and drives nothing about the query, so if
-they disagree the page will quietly rank the wrong window. Change them
-together, in the same sitting.
-
-(For the record, passing dates in at call time was tried and did not work:
-`{{ startTrigger.data.startDate }}` arrived as `0`, giving
-`cannot cast type integer to date`. Fixed dates are the better fit for this
-anyway.)
-
-### Measured cost
-
-On 2026-11-12 the `standings` block took **64 seconds** for a round window of a
-few hours, returning 785 rows. The block timeout is set to 120 seconds, so there
-is under 2x headroom, and the query gets slower as a round accumulates play.
-
-That is 64 seconds of scanning a 38 GB table on the production primary per run.
-Hourly, roughly 26 minutes a day of it. Stage 1 is what fixes this; until the
-index exists, run the publish workflow by hand rather than on a schedule.
-
-Re-run `--print-sql retool` and re-paste whenever `round.json` changes.
-
----
-
-## Stage 3. Repo secrets
-
-**Where: this repo on github.com → Settings → Secrets and variables → Actions
-→ the "Secrets" tab → "New repository secret".**
-
-| Name | Value |
-|---|---|
-| `RETOOL_WEBHOOK_URL` | the webhook URL from stage 2 |
-| `RETOOL_WORKFLOW_KEY` | the workflow API key from stage 2 |
-
-That is the whole list. There is no hosting key, because publishing is a commit
-rather than an upload.
-
-Secrets are write-only. You can replace one later but never read it back, so
-keep your own copy somewhere.
-
----
-
-## Stage 4. Prove it, then switch it on
-
-**Where: this repo on github.com → the Actions tab.**
-
-1. Left sidebar, click the **publish** workflow.
-2. **Run workflow** button, top right. Tick **dry_run**. Run.
-3. It fetches, renders and prints the diff, and commits nothing. Open the run,
-   scroll to the bottom, download the **index-html** artifact and open it.
-   Check the top few ranks, the timestamp line and the prize column.
-4. Happy with it? Run it again with **dry_run** unticked. That commits
-   `index.html` and Pages redeploys.
-5. Only once steps 1 to 4 have all worked, edit
-   `.github/workflows/publish.yml` and uncomment these two lines:
-
-   ```yaml
-     schedule:
-       - cron: "5 * * * *"
-   ```
-
-   That is hourly at five past. Do not do this before stage 1 is done.
-
-If a run fails, the log names the reason. The most common are a workflow that
-was saved but not deployed, and a block timeout that is still at the default.
-
----
-
-## Three things that will bite later
-
-**The round window exists in two places.** `round.json` here, and the Custom
-range on the dashboard. The automated path reads `round.json`. A hand export
-reads whatever the dashboard is set to. If they disagree, both paths publish
-confidently and differently.
-
-**The prize ladder exists in two places.** `round.json` here, and `PRIZE_TABLE`
-in the dashboard's `frontend/utils/format.ts`. They agree today. A round with a
-different structure needs both edited.
-
-**Affiliates differ by path on purpose.** The automated path excludes them,
-because `standings.sql` says so. A hand export includes them unless you set the
-Affiliates toggle, which does not default to Exclude.
-
----
-
-## When a round ends
-
-Set `"final": true` in `round.json` and publish once more, or run the workflow
-with the **final** input ticked. The hero line changes from "Updated as of" to
-"Final Standings as of".
-
-This matters. The previous page sat for two months reading "Updated as of
-September 15" while frozen, which tells players it is current when it is not.

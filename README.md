@@ -105,48 +105,56 @@ When that looks right, run it again without dry_run.
 The schedule in `.github/workflows/publish.yml` is commented out on purpose.
 Uncomment it only after section 5.
 
-## 5. The schedule, and the index that would make it faster
+## 5. How the refresh actually works
 
-**The schedule is on**, every 3 hours at five past, in
-`.github/workflows/publish.yml`. Trigger it on demand any time from the Actions
-tab.
+Two scheduled jobs, not one, and the split is the whole trick.
 
-Three hours rather than hourly for one reason, explained below. It is one line
-to change if you want it faster.
+```
+Retool "gauntlet-refresh"   hourly, no time limit
+  standings  analytics-reader, the slow query (2 to 3 minutes)
+  query1     writes the result into retool_db.gauntlet_standings
 
+GitHub "publish"            hourly at :20
+  calls Retool "gauntlet-standings" webhook
+  that webhook only reads the parked copy out of retool_db  (~200ms)
+  build.py renders index.html, commits, deploys to Pages
+```
 
-`"ThirdPartyBet"` is roughly 37 million rows across 38 GB, and **no index on it
-leads with `createdAt`**. The nearest is `("userId", "createdAt" DESC)`, which
-cannot serve a date range without a `userId` to lead on, so the standings query
-scans the whole table.
+**Why it is built this way.** Retool caps a *synchronous* webhook response at
+120 seconds. That is a platform limit, not a setting: raising a block timeout
+does nothing when an HTTP caller is waiting. The standings query passed 120
+seconds on 2026-11-13, one day into the round, and every scheduled publish
+started failing.
 
-This is measured. `EXPLAIN` puts the plan at a cost of about 3.46 million,
-topped by `Parallel Seq Scan on "ThirdPartyBet"`.
+A *scheduled* Retool workflow has no such cap. So the slow query moved there,
+and the webhook now serves a pre-computed answer. The query can take as long as
+it likes and nothing is waiting on it.
 
-It also lands on the **production primary**. Despite its name, the
-`analytics-reader` resource is not a replica: `pg_is_in_recovery()` returns
-false. It is the primary, reached as the `postgres-readonly` user.
+**The page is stamped with the snapshot's `refreshed_at`, not with now.** The
+standings can be up to an hour old by the time they are published, and a page
+that said "Updated as of" the publish time would be claiming a freshness it
+does not have. If the snapshot is ever more than 12 hours old, `build.py`
+aborts rather than publishing, so a Retool schedule that silently stopped
+leaves a visibly stale page instead of a fresh-looking wrong one.
 
-One index fixes it:
+### The index, still worth having
+
+`"ThirdPartyBet"` is 37 million rows across 38 GB with no index leading with
+`createdAt`, so the query reads the whole table. That is why it takes minutes.
 
 ```sql
 CREATE INDEX CONCURRENTLY "ThirdPartyBet_createdAt_idx"
   ON "ThirdPartyBet" ("createdAt");
 ```
 
-**This cannot be run from Retool.** Postgres requires table ownership to add an
-index, `"ThirdPartyBet"` is owned by `svc_migrator`, and neither resource
-qualifies: `analytics-reader` connects as `postgres-readonly`, and
-`appDatabaseWrite` connects as `retool_user`, which is not a superuser and a
-member of no roles. It needs an infra credential. `SETUP.md` stage 1 has the
-request to send, the caveats to send with it, and how to confirm it landed.
+It cannot be run from Retool: Postgres requires table ownership and
+`"ThirdPartyBet"` is owned by `svc_migrator`, while `analytics-reader` connects
+as `postgres-readonly` and `appDatabaseWrite` as `retool_user`. It needs an
+infra credential.
 
-**Measured: 63 seconds per run.** Every 3 hours is 8 runs a day, roughly 8
-minutes of scanning. Hourly would be 25 minutes a day, every 30 minutes would
-be 50. With the index, any of those stop mattering.
-
-Nothing is broken without it. The schedule is just set conservatively, and the
-index is what would let you raise it.
+Nothing is blocked on it any more. It would just mean each hourly refresh costs
+a second instead of three minutes of reading the production primary, and the
+two-workflow split could collapse back into one.
 
 ## 6. Files
 
@@ -157,6 +165,7 @@ index is what would let you raise it.
 | `build.py` | Fetch, rank, mask, render. Standard library only. |
 | `standings.sql` | The ranking rule. One source of truth, shared with the Retool workflow via `--print-sql`. |
 | `round.json` | The only file that changes between rounds. |
+| (no file) | `retool_db.gauntlet_standings` is the single-row table the Retool refresh writes to and the webhook reads from. Created 2026-11-13. |
 | `.github/workflows/publish.yml` | Scheduled and manual publishing. Schedule off by default. |
 
 ## 7. Copy rules for anything written around this

@@ -15,12 +15,13 @@
 name: publish
 
 on:
-  # Off until "ThirdPartyBet" has an index on createdAt. Retool caps a
-  # synchronous webhook response at 120 seconds and the standings query now
-  # exceeds that, so every scheduled run fails and mails about it. Turn this
-  # back on the day the index lands.
-  # schedule:
-  #   - cron: "5 */3 * * *"
+  # Hourly at :20. This no longer touches the production database: the
+  # gauntlet-refresh workflow in Retool runs the slow query on its own hourly
+  # schedule and parks the result in retool_db, and the webhook this calls just
+  # reads that back in about 200ms. :20 gives Retool's refresh time to land
+  # first.
+  schedule:
+    - cron: "20 * * * *"
   workflow_dispatch:
     inputs:
       final:
