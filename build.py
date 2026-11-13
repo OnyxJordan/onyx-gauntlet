@@ -120,6 +120,15 @@ def standings_sql(cfg, flavor="psycopg", sql_path=SQL):
 # standings sources
 # --------------------------------------------------------------------------
 
+def capture_as_of(cfg, payload):
+    """The standings are produced on Retool's own schedule and parked in
+    retool_db, so by the time we read them they are already minutes or hours
+    old. Record when they were gathered, so the page can be stamped with that
+    rather than with now: otherwise a frozen snapshot publishes as current."""
+    if isinstance(payload, dict) and payload.get("refreshed_at"):
+        cfg["_data_as_of"] = str(payload["refreshed_at"])
+
+
 def unwrap(payload):
     """Accept {'standings': [...]}, {'data': [...]} or a bare array."""
     if isinstance(payload, list):
@@ -184,6 +193,7 @@ def from_retool(cfg, timeout=600):
     except json.JSONDecodeError:
         raise SystemExit(f"Retool webhook did not return JSON. First 300 chars:\n{raw[:300]}")
 
+    capture_as_of(cfg, payload)
     rows = unwrap(payload)
     if not rows:
         # A webhook workflow with no Response block answers instantly with a run
@@ -266,6 +276,15 @@ def render(names, cfg, when, template=TEMPLATE):
 
 # --------------------------------------------------------------------------
 
+def parse_iso_eastern(text):
+    """Read an ISO timestamp from the stored snapshot and express it Eastern."""
+    t = str(text).strip().replace("Z", "+00:00")
+    dt = datetime.datetime.fromisoformat(t)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt.astimezone(EASTERN)
+
+
 def parse_when(text):
     if not text:
         return datetime.datetime.now(EASTERN)
@@ -299,7 +318,9 @@ def main(argv=None):
     if args.source == "json":
         if not args.json_file:
             raise SystemExit("--source json needs --json-file")
-        names = usernames(unwrap(json.loads(args.json_file.read_text())))
+        payload = json.loads(args.json_file.read_text())
+        capture_as_of(cfg, payload)
+        names = usernames(unwrap(payload))
     else:
         names = from_retool(cfg)
 
@@ -308,7 +329,24 @@ def main(argv=None):
     if not names:
         raise SystemExit("no usable standings; aborting before write so the live page stands.")
 
-    html, rows = render(names, cfg, parse_when(args.at))
+    # Explicit --at wins; otherwise use when the data was gathered; otherwise now.
+    if args.at:
+        when = parse_when(args.at)
+    elif cfg.get("_data_as_of"):
+        when = parse_iso_eastern(cfg["_data_as_of"])
+        age = datetime.datetime.now(EASTERN) - when
+        print(f"standings gathered {when:%Y-%m-%d %H:%M %Z}, "
+              f"{int(age.total_seconds() // 60)} minutes old", file=sys.stderr)
+        if age > datetime.timedelta(hours=12):
+            raise SystemExit(
+                f"the parked standings are {age} old, which means the Retool "
+                "schedule has stopped refreshing them. Refusing to publish a "
+                "stale snapshot as though it were current."
+            )
+    else:
+        when = parse_when(None)
+
+    html, rows = render(names, cfg, when)
     args.out.write_text(html)
     paid = sum(1 for r in rows if r["p"] > 0)
     print(f"Wrote {args.out}: {len(rows)} players, {paid} paid places, "
