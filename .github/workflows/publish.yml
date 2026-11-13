@@ -15,13 +15,20 @@
 name: publish
 
 on:
-  # Hourly at :20. This no longer touches the production database: the
-  # gauntlet-refresh workflow in Retool runs the slow query on its own hourly
-  # schedule and parks the result in retool_db, and the webhook this calls just
-  # reads that back in about 200ms. :20 gives Retool's refresh time to land
-  # first.
+  # Every 15 minutes, deliberately more often than the data changes.
+  #
+  # GitHub's scheduler is unreliable on this repo: asked for hourly, it fired
+  # twice in 24 hours, each about 100 minutes late, and dropped the rest. That
+  # is documented GitHub behaviour under load and there is no setting for it.
+  # Asking 96 times a day means the dropped slots stop mattering.
+  #
+  # This is cheap. It no longer touches the production database at all: the
+  # gauntlet-refresh workflow in Retool runs the slow query on its own schedule
+  # and parks the result in retool_db, and the webhook this calls just reads
+  # that back in about 200ms. A run where nothing changed commits nothing.
+  # Public repos get unlimited Actions minutes.
   schedule:
-    - cron: "20 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       final:
