@@ -148,7 +148,7 @@ def usernames(rows):
     return out
 
 
-def from_retool(cfg, timeout=180):
+def from_retool(cfg, timeout=600):
     url = os.environ.get("RETOOL_WEBHOOK_URL", "").strip()
     key = os.environ.get("RETOOL_WORKFLOW_KEY", "").strip()
     if not url:
