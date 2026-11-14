@@ -119,11 +119,39 @@ Retool "gauntlet-refresh"   hourly, no time limit
   standings  analytics-reader, the slow query (2 to 3 minutes)
   query1     writes the result into retool_db.gauntlet_standings
 
-GitHub "publish"            hourly at :20
+GitHub "publish"            :04 :19 :34 :49, when GitHub feels like it
   calls Retool "gauntlet-standings" webhook
   that webhook only reads the parked copy out of retool_db  (~200ms)
   build.py renders index.html, commits, deploys to Pages
 ```
+
+**The Retool half is reliable. The GitHub half is not.** Checked 2026-11-14:
+the Retool refresh had been firing hourly between :07 and :14 all round, while
+GitHub, asked for a run every 15 minutes, fired the schedule 3 times in 19
+hours. Dropped slots, not late ones. So the standings were being recalculated
+on time and simply not published, and the page would sit on a snapshot five or
+six hours old while a fresh one waited in `retool_db`.
+
+Asking more often does not help; that was already the mitigation that failed.
+The minutes are now off the congested :00 and :30 marks, which is the only
+lever the cron itself offers.
+
+**The real fix is to stop relying on GitHub's clock.** Retool's schedule does
+fire on time, so let it start the publish the moment it has new data. Add a
+final block to `gauntlet-refresh`, after the one that writes the snapshot:
+
+```js
+// Resource query, type REST / HTTP, or a JS block using fetch.
+// POST https://api.github.com/repos/OnyxJordan/onyx-gauntlet/actions/workflows/publish.yml/dispatches
+// Headers: Authorization: Bearer {{ retoolContext.configVars.GITHUB_TOKEN }}
+//          Accept: application/vnd.github+json
+// Body:    { "ref": "main" }
+```
+
+The token is a GitHub fine-grained personal access token scoped to this one
+repository with **Actions: read and write**, stored as a Retool config variable
+or secret. Nothing else changes: the cron stays as a backstop, and a publish
+started either way does the same work.
 
 **Why it is built this way.** Retool caps a *synchronous* webhook response at
 120 seconds. That is a platform limit, not a setting: raising a block timeout

@@ -6,21 +6,29 @@
 # prevention, so a commit from this job would never wake pages.yml and the site
 # would sit stale behind the repo. Doing both in one job removes the chaining.
 #
-# Runs every 3 hours rather than hourly, because the standings query currently
-# costs ~63 seconds scanning all 38 GB of "ThirdPartyBet" on the production
-# primary. Every 3 hours is 8 runs a day, about 8 minutes of scanning; hourly
-# would be 25. Once that table has an index leading with createdAt the query
-# becomes near-instant and this can safely go to "5 * * * *" or faster.
-# See README section 5.
+# This job no longer runs the slow standings query itself. Retool does that on
+# its own hourly schedule and parks the answer; this reads the parked copy in
+# about 200ms, so running it often costs nothing. See README section 5.
 name: publish
 
 on:
-  # Every 15 minutes, deliberately more often than the data changes.
+  # Four times an hour, on deliberately unpopular minutes.
   #
-  # GitHub's scheduler is unreliable on this repo: asked for hourly, it fired
-  # twice in 24 hours, each about 100 minutes late, and dropped the rest. That
-  # is documented GitHub behaviour under load and there is no setting for it.
-  # Asking 96 times a day means the dropped slots stop mattering.
+  # GitHub's scheduler is badly unreliable on this repo and asking more often
+  # did not fix it. Measured 2026-11-14: with "*/15" set, which asks for 96
+  # runs a day, GitHub fired the schedule 3 times in 19 hours, roughly every
+  # 6.5 hours. Before that, hourly fired twice in 24 hours. Runs are dropped,
+  # not merely delayed, and there is no setting that changes this.
+  #
+  # The minutes below avoid :00, :15, :30 and :45. GitHub's own docs say runs
+  # scheduled on the hour are the most likely to be dropped because that is
+  # when every repo on the platform asks at once, so odd minutes are the one
+  # lever available here. They are also placed just after the Retool refresh,
+  # which lands between :07 and :14, so a publish follows new data closely.
+  #
+  # Treat this as a mitigation, not a fix. The reliable path is Retool calling
+  # this workflow by workflow_dispatch the moment it parks a new snapshot,
+  # since that schedule does fire on time. See README section 5.
   #
   # This is cheap. It no longer touches the production database at all: the
   # gauntlet-refresh workflow in Retool runs the slow query on its own schedule
@@ -28,7 +36,7 @@ on:
   # that back in about 200ms. A run where nothing changed commits nothing.
   # Public repos get unlimited Actions minutes.
   schedule:
-    - cron: "*/15 * * * *"
+    - cron: "4,19,34,49 * * * *"
   workflow_dispatch:
     inputs:
       final:
