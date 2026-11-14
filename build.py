@@ -34,6 +34,7 @@ Run:
 
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -47,6 +48,7 @@ ROOT = Path(__file__).resolve().parent
 TEMPLATE = ROOT / "template.html"
 ROUND = ROOT / "round.json"
 SQL = ROOT / "standings.sql"
+PREV = ROOT / "previous.json"
 OUT = ROOT / "index.html"
 
 EASTERN = ZoneInfo("America/New_York")
@@ -213,6 +215,48 @@ def from_retool(cfg, timeout=600):
 # render
 # --------------------------------------------------------------------------
 
+def player_key(u):
+    """Stable, non-reversible id for one player, so previous ranks can be
+    carried between runs without committing real usernames to a public repo.
+    Masked names are not usable as a key: they collide, and two players who
+    both mask to the same string would swap movement arrows."""
+    return hashlib.sha256(u.encode("utf-8")).hexdigest()[:16]
+
+
+def load_previous(path=PREV):
+    """{key: rank} from the last published run, or empty on the first run."""
+    if not path.exists():
+        return {}
+    try:
+        prev = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        print(f"{path} is unreadable; treating every player as new", file=sys.stderr)
+        return {}
+    ranks = prev.get("ranks")
+    return ranks if isinstance(ranks, dict) else {}
+
+
+def movement(names, previous):
+    """Spots gained since the previous run, positive for a climb. None means
+    the player was not in the previous standings, which the page shows as New
+    rather than as an improvement from nowhere."""
+    out = []
+    for i, u in enumerate(names):
+        was = previous.get(player_key(u))
+        out.append(None if was is None else was - (i + 1))
+    return out
+
+
+def save_previous(names, when, path=PREV):
+    path.write_text(json.dumps({
+        "_comment": "Ranks from the last published run, keyed by a truncated "
+                    "sha256 of the username so no real usernames are stored. "
+                    "Written by build.py; delete it to reset every arrow to New.",
+        "as_of": when.isoformat(),
+        "ranks": {player_key(u): i + 1 for i, u in enumerate(names)},
+    }, indent=0, sort_keys=True) + "\n")
+
+
 def mask(u):
     """first char + stars + last two. Mirrors maskUsername() in the dashboard's
     frontend/utils/format.ts. Change both together or the two will disagree."""
@@ -252,11 +296,14 @@ def report(names):
                 print(f"    rank {hit[0]}: {hit[1]}", file=sys.stderr)
 
 
-def render(names, cfg, when, template=TEMPLATE):
+def render(names, cfg, when, deltas=None, template=TEMPLATE):
     table = cfg["prize_table"]
+    shown = names[: int(cfg.get("cap", 1000))]
+    deltas = deltas or [None] * len(shown)
     rows = [
-        {"r": i + 1, "u": mask(u), "p": table[i] if i < len(table) else 0}
-        for i, u in enumerate(names[: int(cfg.get("cap", 1000))])
+        {"r": i + 1, "u": mask(u), "p": table[i] if i < len(table) else 0,
+         "d": deltas[i] if i < len(deltas) else None}
+        for i, u in enumerate(shown)
     ]
     # Escape < exactly as the dashboard's buildHtml does, so no handle can close
     # the script tag.
@@ -346,8 +393,19 @@ def main(argv=None):
     else:
         when = parse_when(None)
 
-    html, rows = render(names, cfg, when)
+    previous = load_previous()
+    deltas = movement(names, previous)
+    html, rows = render(names, cfg, when, deltas)
     args.out.write_text(html)
+
+    # Only record these ranks as "previous" once the page is actually written,
+    # so an aborted build cannot swallow a round of movement.
+    if args.out == OUT:
+        save_previous(names, when)
+    moved = [d for d in deltas if d]
+    print(f"movement: {sum(1 for d in deltas if d is None)} new, "
+          f"{sum(1 for d in moved if d > 0)} up, {sum(1 for d in moved if d < 0)} down, "
+          f"{sum(1 for d in deltas if d == 0)} unchanged", file=sys.stderr)
     paid = sum(1 for r in rows if r["p"] > 0)
     print(f"Wrote {args.out}: {len(rows)} players, {paid} paid places, "
           f"{sum(r['p'] for r in rows):,} awarded", file=sys.stderr)

@@ -28,6 +28,11 @@ internal dashboard rank players by the same rule and cannot drift apart.
   a deliberate difference from the dashboard, which includes them by default.
 - Dates are inclusive and Eastern.
 
+The page follows the Onyx design system from the Onyx Sports Data site: black
+onyx surfaces, purple 400 accents, extended uppercase Archivo display type,
+Geist Mono labels, Doto raster numerals, bracket buttons. Movement arrows use
+that site's pos/neg/mut convention (#61e970 up, #ff7a90 down, #9a93a6 flat).
+
 Only masked handles and prizes ever reach the page. The page source is public,
 so a real username embedded in it is a published username. `build.py` refuses to
 write a page if an unmasked handle reaches the data array.
@@ -165,6 +170,7 @@ two-workflow split could collapse back into one.
 | `build.py` | Fetch, rank, mask, render. Standard library only. |
 | `standings.sql` | The ranking rule. One source of truth, shared with the Retool workflow via `--print-sql`. |
 | `round.json` | The only file that changes between rounds. |
+| `previous.json` | Last run's ranks, keyed by a truncated sha256 of the username so no real usernames are stored. Drives the Move column. Delete it to reset every arrow to New. |
 | (no file) | `retool_db.gauntlet_standings` is the single-row table the Retool refresh writes to and the webhook reads from. Created 2026-11-13. |
 | `.github/workflows/publish.yml` | Scheduled and manual publishing. Schedule off by default. |
 

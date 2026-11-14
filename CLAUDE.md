@@ -106,6 +106,37 @@ generate; never retype.
 - The query is heavy enough to exceed short client timeouts. Retool's own
   runtime is fine with a raised block timeout.
 
+## 6b. Look and feel
+
+The page follows the Onyx design system from `OnyxJordan/onyx-baseball-fix`
+(`onyx.css`), so the Gauntlet matches the rest of Onyx:
+
+- Tokens copied from that file's `:root`: `--ox-black:#0c0c0c`,
+  `--ox-ink:#08080a`, `--ox-white:#fcfcfc`, `--ox-body:#afa5bd`,
+  `--ox-stroke:#2f2f2f`, `--ox-purple:#b038f9`, `--ox-lilac:#d795ff`,
+  `--ox-green:#61e970`, `--ox-mint:#a5feaf`. No yellow.
+- Type: Archivo at 125% width for the extended uppercase display, Geist Mono
+  for labels, Doto for raster numerals (ranks and the stat strip).
+- Components reproduced inline: mint announcement bar, sticky header with the
+  real Onyx wordmark and mark, marquee, diamond-marked eyebrow, bracket
+  buttons, raster digit hero art.
+- Up/down/flat colours follow that site's `picks.html`:
+  `.pos{#61e970} .neg{#ff7a90} .mut{#9a93a6}`.
+
+Keep it self contained. The real site loads `onyx.css` and `onyx.js`; this page
+inlines what it needs instead, because it has to work as one file.
+
+## 6c. Movement arrows
+
+`previous.json` holds the last published run's ranks, keyed by
+`sha256(username)[:16]`. Masked names cannot be the key: they collide, and two
+players masking to the same string would swap arrows.
+
+`d` on each row is spots gained, positive for a climb, `null` for a player who
+was not in the previous standings (shown as New, not as a climb from nowhere).
+Previous ranks are saved only after the page is actually written, so an aborted
+build cannot swallow a round of movement.
+
 ## 7. Gotchas
 
 - **The affiliate toggle on the dashboard defaults to All.** A hand export made
