@@ -324,6 +324,25 @@ function digest(s){
       return out;
     })['catch'](function(){return ''});
 }
+/* Could this masked handle be the name being typed?
+
+   The mask already shows three things about a username: its first character,
+   its last two, and its length. Matching what is typed against only those,
+   and letting the hidden middle match anything, narrows the board as someone
+   types their own name without putting a single new character on the page.
+
+   So "bb" keeps b***56 on screen, because the first letter agrees and the
+   second is hidden and cannot be ruled out, and each further character cuts
+   the list down. It is a could-be match, not proof: "bx" survives too. The
+   digest above is what identifies the row exactly once the whole name is in. */
+function couldBe(mask,q){
+  if(q.length>mask.length)return false;
+  for(var i=0;i<q.length;i++){
+    var m=mask.charAt(i);
+    if(m!=='*'&&m!==q.charAt(i))return false;
+  }
+  return true;
+}
 document.getElementById('q').addEventListener('input',function(){
   pg=1;
   var q=this.value.trim(),n=++SEQ;
@@ -353,7 +372,11 @@ function render(){
      burying it among handles that happen to share letters. */
   var hit=QK?ALL.filter(function(r){return r.k===QK}):[];
   fil=hit.length?hit
-     :q?ALL.filter(function(r){return r.u.toLowerCase().indexOf(q)>=0})
+     :q?ALL.filter(function(r){
+          var m=r.u.toLowerCase();
+          /* the masked handle as shown, or the name it could be */
+          return m.indexOf(q)>=0||couldBe(m,q);
+        })
      :ALL.slice();
   fil.sort(function(a,b){
     if(sk==='u')return a.u.localeCompare(b.u)*sd;
