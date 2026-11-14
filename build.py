@@ -247,6 +247,35 @@ def player_key(u):
     return hashlib.sha256(u.encode("utf-8")).hexdigest()[:16]
 
 
+# Shared with the page, which hashes what someone types and compares. Changing
+# it on one side only breaks search silently, so both sides must move together.
+SEARCH_SALT = "onyx-gauntlet:"
+
+
+def search_key(u):
+    """Lets a player type their real username into the page and find their own
+    row, without the page ever containing a real username.
+
+    The page cannot match what it does not hold, and it holds only masked
+    handles, so searching for "jordan" against "j****an" finds nothing. Instead
+    every row carries this digest, the page hashes whatever is typed the same
+    way, and compares. Nothing reversible ships.
+
+    Normalised to lowercase and trimmed, because people do not retype their own
+    handle with the capitalisation they signed up with.
+
+    Worth being clear about the tradeoff: a digest is not a secret. Someone
+    holding a list of usernames could hash it and learn which of those names
+    appear on the board. They could already narrow that down from the masked
+    handle, which gives the first letter, the last two and the length, so this
+    makes confirming a guess exact rather than likely. The full list still
+    cannot be read off the page. If that trade is not wanted, drop "k" from the
+    rows below and the search falls back to masked handles only."""
+    return hashlib.sha256(
+        (SEARCH_SALT + u.strip().lower()).encode("utf-8")
+    ).hexdigest()[:12]
+
+
 def load_previous(path=PREV):
     """Movement state. Two snapshots are kept, not one:
 
@@ -362,7 +391,7 @@ def render(names, cfg, when, deltas=None, template=TEMPLATE):
     deltas = deltas or [None] * len(shown)
     rows = [
         {"r": i + 1, "u": mask(u), "p": table[i] if i < len(table) else 0,
-         "d": deltas[i] if i < len(deltas) else None}
+         "d": deltas[i] if i < len(deltas) else None, "k": search_key(u)}
         for i, u in enumerate(shown)
     ]
     # Escape < exactly as the dashboard's buildHtml does, so no handle can close

@@ -62,6 +62,22 @@ browser. That was a regression against what the dashboard already did. `render()
 in `build.py` has a guard that refuses to write the file if an unmasked handle
 reaches the data; it is tested by breaking `mask()` on purpose. Do not remove it.
 
+**Search by real username works without breaking that.** Players could not find
+themselves, because typing a whole handle cannot match the mask it is shown as.
+So each row also carries `k`, a salted sha256 of the lowercased handle
+(`search_key()` in `build.py`, `SEARCH_SALT` shared with `digest()` in
+`template.html` — change one and search silently stops working). The page hashes
+what is typed and compares. An exact match wins outright and shows that one row;
+otherwise it falls back to substring matching against masked handles.
+
+Be honest about what that costs: a digest is not a secret. Someone holding a
+list of usernames can hash it and learn which of those names are on the board.
+The mask already gives the first letter, the last two and the length, so this
+turns a likely guess into a confirmed one. The list still cannot be read off the
+page. Jordan asked for the search on 2026-11-14 knowing the page is public; if
+the trade is ever unwanted, drop `"k"` from the rows in `render()` and search
+degrades to masked handles only.
+
 ## 4. File map
 
 | Path | What it is |

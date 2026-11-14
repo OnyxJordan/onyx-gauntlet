@@ -37,6 +37,12 @@ Only masked handles and prizes ever reach the page. The page source is public,
 so a real username embedded in it is a published username. `build.py` refuses to
 write a page if an unmasked handle reaches the data array.
 
+Players can still find themselves: type a whole username into the search box and
+it jumps to that row, even though the row is shown as `j******kt` and the page
+holds no usernames. Each row carries a salted hash of the handle and the page
+hashes what you type to compare. Partial text still searches masked handles as
+before. The tradeoff this makes is written down in `CLAUDE.md` section 3.
+
 ## 2. Publishing by hand, which needs no setup at all
 
 The dashboard already builds this exact page. Use it:

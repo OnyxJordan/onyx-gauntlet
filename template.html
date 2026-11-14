@@ -263,7 +263,33 @@ var ALL=__DATA__;
 })();
 
 var fil=ALL.slice(),sk='r',sd=1,pg=1,ps=25;
-document.getElementById('q').addEventListener('input',function(){pg=1;render()});
+/* Search by real username, without the page holding any real username.
+   Rows carry a digest of the handle; we hash what is typed the same way and
+   compare. The hash is async, so it is computed off to the side and kept in
+   QK, and the row filter below reads whatever QK currently holds. Typing a
+   whole handle therefore finds the row it is masked as, which plain text
+   matching against the mask never could. */
+var QK='',SALT='onyx-gauntlet:',SEQ=0;
+function digest(s){
+  if(!(window.crypto&&crypto.subtle&&crypto.subtle.digest))return Promise.resolve('');
+  return crypto.subtle.digest('SHA-256',new TextEncoder().encode(SALT+s))
+    .then(function(b){
+      var out='',v=new Uint8Array(b);
+      for(var i=0;i<6;i++)out+=('0'+v[i].toString(16)).slice(-2);
+      return out;
+    })['catch'](function(){return ''});
+}
+document.getElementById('q').addEventListener('input',function(){
+  pg=1;
+  var q=this.value.trim(),n=++SEQ;
+  render();
+  if(!q){QK='';return}
+  digest(q.toLowerCase()).then(function(h){
+    /* A slower hash from an earlier keystroke must not overwrite a newer one. */
+    if(n!==SEQ)return;
+    if(h!==QK){QK=h;render()}
+  });
+});
 document.getElementById('ps').addEventListener('change',function(e){ps=+e.target.value;pg=1;render()});
 function sb(k){sd=sk===k?-sd:(k==='r'?1:-1);sk=k;pg=1;render()}
 function go(d){var t=Math.max(1,Math.ceil(fil.length/ps));pg=Math.max(1,Math.min(t,pg+d));render()}
@@ -277,8 +303,13 @@ function move(r){
 }
 
 function render(){
-  var q=document.getElementById('q').value.toLowerCase();
-  fil=q?ALL.filter(function(r){return r.u.toLowerCase().indexOf(q)>=0}):ALL.slice();
+  var q=document.getElementById('q').value.trim().toLowerCase();
+  /* An exact username match wins outright: show that one row rather than
+     burying it among handles that happen to share letters. */
+  var hit=QK?ALL.filter(function(r){return r.k===QK}):[];
+  fil=hit.length?hit
+     :q?ALL.filter(function(r){return r.u.toLowerCase().indexOf(q)>=0})
+     :ALL.slice();
   fil.sort(function(a,b){
     if(sk==='u')return a.u.localeCompare(b.u)*sd;
     if(sk==='d'){
