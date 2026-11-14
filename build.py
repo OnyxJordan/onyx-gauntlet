@@ -128,7 +128,31 @@ def capture_as_of(cfg, payload):
     old. Record when they were gathered, so the page can be stamped with that
     rather than with now: otherwise a frozen snapshot publishes as current."""
     if isinstance(payload, dict) and payload.get("refreshed_at"):
-        cfg["_data_as_of"] = str(payload["refreshed_at"])
+        cfg["_data_as_of"] = snapshot_id(payload["refreshed_at"])
+
+
+def snapshot_id(raw):
+    """Identify a snapshot by the instant it was taken, not by how that instant
+    happened to be spelled.
+
+    This is what decides whether a run is a republish of standings already on
+    the page, and so whether the movement arrows hold or are recomputed. It has
+    to be stable. Retool returns '...T17:07:49.651Z' today, but '+00:00',
+    different fractional digits or a non-UTC offset all name the same moment,
+    and comparing the text would read any of those as new data, recompute every
+    delta against the snapshot's own ranks, and flatten the arrows to zero.
+    That was a real bug; this is what stops it coming back by accident.
+
+    Anything unparseable falls back to the raw text, which is no worse than
+    what it replaced."""
+    text = str(raw)
+    try:
+        dt = datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return text
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt.astimezone(datetime.timezone.utc).isoformat()
 
 
 def unwrap(payload):
@@ -245,13 +269,21 @@ def load_previous(path=PREV):
         # The first version of this file kept one snapshot under "ranks".
         # Carry it forward as the shown snapshot rather than discarding it,
         # which would cost a publish showing New against everybody.
+        carried = prev.get("data_as_of") or prev.get("as_of")
         return {
-            "shown_as_of": prev.get("data_as_of") or prev.get("as_of"),
+            "shown_as_of": snapshot_id(carried) if carried else None,
             "shown_ranks": prev["ranks"],
-            "baseline_ranks": {},
+            # No older snapshot exists to hold arrows against. Reuse the same
+            # ranks, so a republish before the next refresh reads as nothing
+            # moved, which is true, rather than as everybody being new.
+            "baseline_ranks": prev["ranks"],
         }
+    stored = prev.get("shown_as_of")
     return {
-        "shown_as_of": prev.get("shown_as_of"),
+        # Normalised on the way in as well as out, so a file written before
+        # snapshot_id existed starts comparing correctly on the next run
+        # rather than costing one flattened set of arrows.
+        "shown_as_of": snapshot_id(stored) if stored else None,
         "shown_ranks": prev.get("shown_ranks") or {},
         "baseline_ranks": prev.get("baseline_ranks") or {},
     }
