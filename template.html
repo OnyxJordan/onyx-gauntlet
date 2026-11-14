@@ -85,6 +85,10 @@ a{color:inherit;text-decoration:none}
 .hero h1 em{font-style:normal;color:var(--ox-purple)}
 .hero-sub{max-width:620px;font:500 clamp(11px,1.15vw,13px)/1.7 var(--ox-mono);letter-spacing:.05em;
   text-transform:uppercase;color:var(--ox-body)}
+/* The round window. Brighter than the update stamp below it: which contest
+   this is matters more than when it was last recalculated. */
+.hero-round{margin:0 0 6px;font:600 clamp(12px,1.3vw,15px)/1.6 var(--ox-mono);
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ox-lilac)}
 
 /* stat strip */
 .stats{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
@@ -147,6 +151,19 @@ tr.t1 .pz{background:var(--ox-purple);color:#fff}
 .empty b{display:block;font:800 18px var(--ox-display);font-stretch:125%;text-transform:uppercase;color:var(--ox-200);margin-bottom:8px}
 .empty i{font:500 12px var(--ox-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ox-400);font-style:normal}
 
+/* tournament terms */
+.terms{max-width:720px;margin:56px auto 0;padding-top:30px;
+  border-top:1px solid var(--ox-stroke)}
+.terms h2{margin:0 0 18px;font:800 clamp(18px,2.4vw,26px)/1.1 var(--ox-display);
+  font-stretch:125%;letter-spacing:.01em;text-transform:uppercase;color:var(--ox-white)}
+.terms ul{margin:0;padding:0;list-style:none}
+.terms li{position:relative;padding:0 0 11px 18px;
+  font:500 12px/1.85 var(--ox-mono);letter-spacing:.03em;color:var(--ox-body)}
+.terms li::before{content:"";position:absolute;left:0;top:11px;width:5px;height:5px;
+  background:var(--ox-purple);transform:rotate(45deg)}
+.terms p{margin:16px 0 0;font:500 11px/1.8 var(--ox-mono);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ox-mut)}
+
 .legend{max-width:620px;margin:22px auto 0;text-align:center;
   font:500 11px/1.9 var(--ox-mono);letter-spacing:.04em;color:var(--ox-mut)}
 /* The table cell reserves a fixed width so the column lines up; in a sentence
@@ -200,6 +217,7 @@ footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:upp
   <div class="wrap hero-in">
     <span class="eyebrow">Mini Games</span>
     <h1>The <em>Gauntlet</em></h1>
+    <p class="hero-round">__ROUND__</p>
     <p class="hero-sub">__UPDATED__</p>
   </div>
   <div class="wrap">
@@ -246,6 +264,25 @@ footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:upp
       <span class="mv up"><s>&#9650;</s></span> and <span class="mv dn"><s>&#9660;</s></span>
       show places gained or lost over the last 24 hours.
     </p>
+
+    <section class="terms">
+      <h2>Tournament Terms</h2>
+      <ul>
+        <li>The Mini Games Gauntlet runs __ROUND__, inclusive, Eastern time.</li>
+        <li>Players are ranked by total amount staked on Onyx Mini Games during
+            that window. Sweepstakes play only. Where two players are level, the
+            one who has played more rounds ranks higher.</li>
+        <li>The top __PLACES__ places share __POOL__ Bonus Onyx Cash, awarded as
+            shown in the Prize column.</li>
+        <li>Prizes are credited within 48 hours of the completion of the
+            tournament.</li>
+        <li>Onyx staff and affiliates are not eligible and do not appear in the
+            standings.</li>
+        <li>Standings refresh regularly through the tournament and are marked
+            final once it closes.</li>
+      </ul>
+      <p>No purchase necessary. 18+. Terms apply.</p>
+    </section>
   </div>
 </main>
 

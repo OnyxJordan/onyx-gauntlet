@@ -436,6 +436,27 @@ def updated_line(when, final=False):
     return f"{lead} {clock} ET · {when.strftime('%B')} {when.day}, {when.year}"
 
 
+def round_line(cfg):
+    """The round window, for the hero and the terms. Reads from round.json, so
+    the dates on the page cannot drift from the dates the query ran with.
+
+    Collapses the month when both ends share it, "November 12 to 18, 2026",
+    and the year when both ends share that."""
+    try:
+        a = datetime.date.fromisoformat(cfg["start_date"])
+        b = datetime.date.fromisoformat(cfg["end_date"])
+    except (KeyError, ValueError):
+        raise SystemExit("round.json needs start_date and end_date as YYYY-MM-DD")
+    if a == b:
+        return f"{a.strftime('%B')} {a.day}, {a.year}"
+    if (a.year, a.month) == (b.year, b.month):
+        return f"{a.strftime('%B')} {a.day} to {b.day}, {b.year}"
+    if a.year == b.year:
+        return f"{a.strftime('%B')} {a.day} to {b.strftime('%B')} {b.day}, {b.year}"
+    return (f"{a.strftime('%B')} {a.day}, {a.year} to "
+            f"{b.strftime('%B')} {b.day}, {b.year}")
+
+
 def report(names):
     """Advisory only. Masking hides most of what used to need cleaning, so this
     flags what masking does not fix rather than rewriting anything."""
@@ -472,8 +493,15 @@ def render(names, cfg, when, deltas=None, template=TEMPLATE):
     # the script tag.
     data = json.dumps(rows, separators=(",", ":")).replace("<", "\\u003c")
 
+    paid = sum(1 for p in table if p > 0)
     html = template.read_text()
     for placeholder, value in (("__UPDATED__", updated_line(when, cfg.get("final", False))),
+                               ("__ROUND__", round_line(cfg)),
+                               # Counted from the ladder rather than written out,
+                               # so the terms cannot promise a different number of
+                               # places or a different pool than the page pays.
+                               ("__PLACES__", str(paid)),
+                               ("__POOL__", f"{sum(table):,}"),
                                ("__DATA__", data)):
         if placeholder not in html:
             raise SystemExit(f"template is missing {placeholder}")
