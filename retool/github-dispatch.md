@@ -37,9 +37,15 @@ In `gauntlet-refresh`, add a block, choose **GitHub publish (onyx-gauntlet)**:
 |---|---|
 | Method | `POST` |
 | URL | `/repos/OnyxJordan/onyx-gauntlet/actions/workflows/publish.yml/dispatches` |
-| Body | **Raw JSON**: `{"ref": "main"}` |
+| Body | dropdown **JSON**, then one row: key `ref`, value `main` |
 
 Nothing else. No query parameters, no headers on the block itself.
+
+**The body is two boxes, not one.** Retool's JSON body editor is a key/value
+list and assembles the JSON itself, so the key box holds `ref` and the value box
+holds `main`, with no braces, quotes or colon anywhere. Typing `{"ref": "main"}`
+into the value box sends a body GitHub cannot read, and it answers
+`422 Invalid request, "ref" wasn't supplied`.
 
 Then **Publish release**. An unpublished workflow keeps running the old version.
 

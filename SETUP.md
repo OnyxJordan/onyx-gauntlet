@@ -226,7 +226,7 @@ Retool → Workflows → **gauntlet-refresh** → add a block at the end, after
 |---|---|
 | Method | `POST` |
 | URL | `/repos/OnyxJordan/onyx-gauntlet/actions/workflows/publish.yml/dispatches` |
-| Body | Raw JSON, `{"ref": "main"}` |
+| Body | dropdown **JSON**, then one row: key `ref`, value `main` |
 
 Then **Publish release**. An unpublished change does nothing.
 

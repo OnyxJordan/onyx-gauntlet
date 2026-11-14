@@ -153,7 +153,7 @@ runtime has no `fetch`, so a Code block fails with
 ```
 Resource  GitHub publish (onyx-gauntlet)     base URL https://api.github.com
 POST      /repos/OnyxJordan/onyx-gauntlet/actions/workflows/publish.yml/dispatches
-Body      {"ref": "main"}                    raw JSON
+Body      dropdown JSON, one row: key "ref", value "main"
 ```
 
 The resource holds an `Authorization: Bearer <token>` header, where the token is
