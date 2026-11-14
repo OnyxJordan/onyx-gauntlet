@@ -190,7 +190,7 @@ footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:upp
 <div class="marq" aria-hidden="true"><div id="mq"></div></div>
 
 <section class="hero">
-  <canvas class="hero-art" id="art" aria-hidden="true"></canvas>
+  <canvas class="hero-art" data-ox-art="field" data-ox-tone="purple" data-ox-fade="0" data-ox-calm=".6" aria-hidden="true"></canvas>
   <div class="wrap hero-in">
     <span class="eyebrow">Mini Games</span>
     <h1>The <em>Gauntlet</em></h1>
@@ -200,7 +200,7 @@ footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:upp
     <div class="stats">
       <div class="stat"><b id="sPlayers">0</b><i>Players</i></div>
       <div class="stat"><b id="sPool">0</b><i>Bonus Onyx Cash</i></div>
-      <div class="stat"><b class="live" id="sPaid">0</b><i>Paid Places</i></div>
+      <div class="stat"><b class="live" id="sPaid">0</b><i>Winning Places</i></div>
     </div>
   </div>
 </section>
@@ -252,7 +252,7 @@ var ALL=__DATA__;
 (function(){
   var el=document.getElementById('mq');
   if(!el)return;
-  var words=['Mini Games Gauntlet','Live Standings','10,000 Bonus Onyx Cash','Top 20 Paid','Ranked By Stake'];
+  var words=['Mini Games Gauntlet','Live Standings','10,000 Bonus Onyx Cash','Top 20 Win','Ranked By Stake'];
   var run='';
   for(var k=0;k<2;k++){
     run+='<span>';
@@ -260,30 +260,6 @@ var ALL=__DATA__;
     run+='</span>';
   }
   el.innerHTML=run;
-})();
-
-/* raster hero art: the digit field from the Onyx site, drawn inline so this
-   page stays self contained. */
-(function(){
-  var c=document.getElementById('art');
-  if(!c||!c.getContext)return;
-  var ctx=c.getContext('2d'),glyphs='0123456789?=-'.split(''),cell=13;
-  function draw(){
-    var w=c.offsetWidth,h=c.offsetHeight,dpr=Math.min(window.devicePixelRatio||1,2);
-    if(!w||!h)return;
-    c.width=w*dpr;c.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.clearRect(0,0,w,h);
-    ctx.font='600 10px "Geist Mono",monospace';ctx.textBaseline='top';
-    var cols=Math.ceil(w/cell),rows=Math.ceil(h/cell),cx=cols/2;
-    for(var y=0;y<rows;y++)for(var x=0;x<cols;x++){
-      var d=Math.abs(x-cx)/cx;
-      if(Math.random()>0.16+d*0.5)continue;
-      ctx.fillStyle='rgba(176,56,249,'+(0.10+Math.random()*0.5*d).toFixed(3)+')';
-      ctx.fillText(glyphs[(Math.random()*glyphs.length)|0],x*cell,y*cell);
-    }
-  }
-  draw();
-  var t;window.addEventListener('resize',function(){clearTimeout(t);t=setTimeout(draw,220)});
 })();
 
 var fil=ALL.slice(),sk='r',sd=1,pg=1,ps=25;
@@ -352,5 +328,6 @@ function render(){
 
 render();
 </script>
+<script src="onyx.js" defer></script>
 </body>
 </html>
