@@ -147,6 +147,12 @@ tr.t1 .pz{background:var(--ox-purple);color:#fff}
 .empty b{display:block;font:800 18px var(--ox-display);font-stretch:125%;text-transform:uppercase;color:var(--ox-200);margin-bottom:8px}
 .empty i{font:500 12px var(--ox-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ox-400);font-style:normal}
 
+.legend{max-width:620px;margin:22px auto 0;text-align:center;
+  font:500 11px/1.9 var(--ox-mono);letter-spacing:.04em;color:var(--ox-mut)}
+/* The table cell reserves a fixed width so the column lines up; in a sentence
+   that reads as a gap after each arrow, so drop it here. */
+.legend .mv{min-width:0;display:inline}
+.legend .mv s{margin-right:0}
 .pages{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:24px}
 .pages span{min-width:120px;text-align:center;font:500 11px var(--ox-mono);letter-spacing:.08em;
   text-transform:uppercase;color:var(--ox-400)}
@@ -224,7 +230,7 @@ footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:upp
       <table>
         <thead><tr>
           <th id="h-r" class="on" onclick="sb('r')">Rank</th>
-          <th id="h-d" onclick="sb('d')">Move</th>
+          <th id="h-d" onclick="sb('d')" title="Places gained or lost over the last 24 hours">Move</th>
           <th id="h-u" onclick="sb('u')">Player</th>
           <th id="h-p" class="prize" onclick="sb('p')">Prize</th>
         </tr></thead>
@@ -236,6 +242,10 @@ footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:upp
       <span id="pi"></span>
       <button class="btn sm" type="button" onclick="go(1)">Next</button>
     </div>
+    <p class="legend">
+      <span class="mv up"><s>&#9650;</s></span> and <span class="mv dn"><s>&#9660;</s></span>
+      show places gained or lost over the last 24 hours.
+    </p>
   </div>
 </main>
 
