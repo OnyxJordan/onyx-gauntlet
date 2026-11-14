@@ -457,6 +457,27 @@ def round_line(cfg):
             f"{b.strftime('%B')} {b.day}, {b.year}")
 
 
+def drop_excluded(names, cfg):
+    """Remove named individuals from the standings before ranking.
+
+    Affiliates as a group are in the board: some of them promote the
+    leaderboard, so excluding all of them was wrong. Individuals are taken out
+    one at a time instead, which is what "excluded" in round.json is for.
+
+    It holds digests, not usernames, because this repository is public and a
+    username committed to it is a published username. Generate one with:
+
+        python3 build.py --exclude-key "thehandle"
+
+    Matching ignores case and surrounding spaces, so the handle does not have
+    to be typed exactly as the player signed up."""
+    keys = {k.strip().lower() for k in cfg.get("excluded", []) if isinstance(k, str)}
+    if not keys:
+        return names, 0
+    kept = [u for u in names if search_key(u) not in keys]
+    return kept, len(names) - len(kept)
+
+
 def report(names):
     """Advisory only. Masking hides most of what used to need cleaning, so this
     flags what masking does not fix rather than rewriting anything."""
@@ -543,8 +564,18 @@ def main(argv=None):
                     help='say "Final Standings as of" (same as "final": true in round.json)')
     ap.add_argument("--print-sql", choices=("psycopg", "retool"), metavar="FLAVOR",
                     help="print the standings query for this round and exit")
+    ap.add_argument("--exclude-key", metavar="USERNAME",
+                    help="print the digest to add to \"excluded\" in round.json "
+                         "to keep this player out of the standings, and exit")
     ap.add_argument("--out", type=Path, default=OUT)
     args = ap.parse_args(argv)
+
+    if args.exclude_key:
+        print(search_key(args.exclude_key))
+        print(f'Add that line to "excluded" in round.json. It is a one-way '
+              f'digest, so the handle itself never reaches this public repo.',
+              file=sys.stderr)
+        return 0
 
     cfg = load_round()
     if args.print_sql:
@@ -563,6 +594,12 @@ def main(argv=None):
         names = from_retool(cfg)
 
     print(f"{len(names)} rows from {args.source}", file=sys.stderr)
+    names, dropped = drop_excluded(names, cfg)
+    if dropped:
+        # Named, not counted silently: an exclusion moves everyone below it up
+        # a place and changes who is paid, so it belongs in the run log.
+        print(f"excluded {dropped} named "
+              f"{'player' if dropped == 1 else 'players'}", file=sys.stderr)
     report(names)
     if not names:
         raise SystemExit("no usable standings; aborting before write so the live page stands.")

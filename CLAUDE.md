@@ -100,9 +100,13 @@ degrades to masked handles only.
   page never renumbers; rank is the query's row order.
 - **SWEEP balances only.**
 - **Internal users excluded**: flagged internal, or an `@onyxodds.com` email.
-- **Affiliates excluded**, meaning any user whose id owns a `Promotion`. This is
-  deliberate and differs from the dashboard, which includes them by default.
-  Jordan decided this on 2026-09-23.
+- **Affiliates are included.** Jordan excluded them on 2026-09-23 and reversed
+  it on 2026-11-14: some affiliates promote the leaderboard, so removing the
+  whole group was wrong. `exclude_affiliates` stays false. Individuals are
+  removed one at a time via `excluded` in `round.json`, which holds digests
+  rather than usernames because the repo is public; generate one with
+  `build.py --exclude-key`. An exclusion moves everyone below it up a place,
+  so it changes who is paid.
 - Dates inclusive, Eastern.
 
 `build.py --print-sql retool` regenerates it with Retool bindings. Always

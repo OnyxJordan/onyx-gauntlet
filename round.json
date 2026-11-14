@@ -21,8 +21,11 @@
     "10-20": 100
   },
 
-  "_affiliate_comment": "An affiliate is a user whose id owns a Promotion. Excluded, so they neither rank nor are owed a prize. On the dashboard this is the Affiliates toggle, which defaults to All and must be set to Exclude before exporting by hand.",
-  "exclude_affiliates": true,
+  "_affiliate_comment": "An affiliate is a user whose id owns a Promotion. They belong IN the standings: some of them promote the leaderboard, so excluding the whole group was wrong. Keep this false and take out individuals with 'excluded' below. On the dashboard this is the Affiliates toggle, which should be left on All.",
+  "exclude_affiliates": false,
+
+  "_excluded_comment": "Individuals kept out of the standings, held as one-way digests rather than usernames because this repository is public. Generate one with: python3 build.py --exclude-key \"thehandle\" then paste the line it prints here. Matching ignores case and surrounding spaces. Everyone below an excluded player moves up a place, so this changes who is paid.",
+  "excluded": [],
 
   "_final_comment": "Set true for the closing update of a round. Changes the hero line to 'Final Standings as of'.",
   "final": false

@@ -24,8 +24,9 @@ internal dashboard rank players by the same rule and cannot drift apart.
 - **SWEEP balances only.** Promotional and non-sweeps play does not count.
 - **Internal users excluded**, meaning flagged internal or an `@onyxodds.com`
   email.
-- **Affiliates excluded**, meaning any user whose id owns a `Promotion`. This is
-  a deliberate difference from the dashboard, which includes them by default.
+- **Affiliates are included.** They were excluded as a group until 2026-11-14;
+  some of them promote the leaderboard, so the group filter was wrong. Named
+  individuals are taken out one at a time through `excluded` in `round.json`.
 - Dates are inclusive and Eastern.
 
 The page follows the Onyx design system from the Onyx Sports Data site: black
