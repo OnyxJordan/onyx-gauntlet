@@ -276,17 +276,40 @@ def search_key(u):
     ).hexdigest()[:12]
 
 
+# The Move column answers "where was this player a day ago".
+#
+# It used to answer "where was this player at the last refresh", and that was
+# the wrong question. The board is ranked by stake, the leaders sit on stakes
+# nobody overtakes in an hour, so the whole top of the page read flat update
+# after update while only the deep ranks churned. Measured on 2026-11-14: of
+# ranks 1 to 25, twenty had not moved at all, while ranks 200 to 400 were
+# almost entirely in motion. An hour is simply too short a window at the top.
+#
+# A day is long enough that the leaders genuinely change places and short
+# enough to still feel live.
+MOVE_WINDOW_HOURS = 24
+
+# How far apart stored snapshots need to be. Every refresh does not need
+# keeping: anchors a few hours apart put the baseline within a few hours of a
+# day old, which is close enough, and keeps this file small enough to rewrite
+# on every publish without bloating the repository.
+ANCHOR_SPACING_HOURS = 3
+
+# Keep a little more than the window, so there is always an anchor old enough
+# to serve it rather than falling back to the oldest thing on hand.
+HISTORY_KEEP_HOURS = MOVE_WINDOW_HOURS + 6
+
+
 def load_previous(path=PREV):
-    """Movement state. Two snapshots are kept, not one:
+    """Movement state: a short history of standings snapshots, oldest first.
 
-      shown_*     the standings snapshot the live page is built from
-      baseline_*  the snapshot before it, which shown_* is compared against
+    Each entry is {"as_of": <snapshot id>, "order": [player keys in rank
+    order]}, so a player's rank is their index plus one. Storing the order
+    rather than a key-to-rank map halves the file.
 
-    The publish job runs every 15 minutes while Retool refreshes hourly, so the
-    same snapshot gets published several times over. Comparing it against
-    itself would show arrows once and flatten them for the next three runs, so
-    a republish keeps using the same baseline and the arrows hold."""
-    blank = {"shown_as_of": None, "shown_ranks": {}, "baseline_ranks": {}}
+    Two older formats are migrated rather than discarded, because dropping
+    this file costs a publish that reads New against all thousand players."""
+    blank = {"history": []}
     if not path.exists():
         return blank
     try:
@@ -294,55 +317,106 @@ def load_previous(path=PREV):
     except json.JSONDecodeError:
         print(f"{path} is unreadable; treating every player as new", file=sys.stderr)
         return blank
-    if "shown_ranks" not in prev and isinstance(prev.get("ranks"), dict):
-        # The first version of this file kept one snapshot under "ranks".
-        # Carry it forward as the shown snapshot rather than discarding it,
-        # which would cost a publish showing New against everybody.
-        carried = prev.get("data_as_of") or prev.get("as_of")
-        return {
-            "shown_as_of": snapshot_id(carried) if carried else None,
-            "shown_ranks": prev["ranks"],
-            # No older snapshot exists to hold arrows against. Reuse the same
-            # ranks, so a republish before the next refresh reads as nothing
-            # moved, which is true, rather than as everybody being new.
-            "baseline_ranks": prev["ranks"],
-        }
-    stored = prev.get("shown_as_of")
-    return {
-        # Normalised on the way in as well as out, so a file written before
-        # snapshot_id existed starts comparing correctly on the next run
-        # rather than costing one flattened set of arrows.
-        "shown_as_of": snapshot_id(stored) if stored else None,
-        "shown_ranks": prev.get("shown_ranks") or {},
-        "baseline_ranks": prev.get("baseline_ranks") or {},
-    }
+
+    if isinstance(prev.get("history"), list):
+        out = []
+        for h in prev["history"]:
+            if h.get("as_of") and isinstance(h.get("order"), list):
+                out.append({"as_of": snapshot_id(h["as_of"]), "order": h["order"]})
+        out.sort(key=lambda h: h["as_of"])
+        return {"history": out}
+
+    # Older formats kept rank maps: {"ranks": {...}} first, then
+    # {"shown_ranks": ..., "baseline_ranks": ...}. Convert whatever is there
+    # into ordered anchors, oldest first.
+    hist = []
+    for as_of_key, ranks_key in (("baseline_as_of", "baseline_ranks"),
+                                 ("shown_as_of", "shown_ranks"),
+                                 ("as_of", "ranks"),
+                                 ("data_as_of", "ranks")):
+        ranks, as_of = prev.get(ranks_key), prev.get(as_of_key)
+        if isinstance(ranks, dict) and ranks and as_of:
+            entry = {"as_of": snapshot_id(as_of), "order": ranks_to_order(ranks)}
+            if entry["as_of"] not in [h["as_of"] for h in hist]:
+                hist.append(entry)
+    hist.sort(key=lambda h: h["as_of"])
+    return {"history": hist}
 
 
-def movement(names, previous):
-    """Spots gained since the previous run, positive for a climb. None means
-    the player was not in the previous standings, which the page shows as New
-    rather than as an improvement from nowhere."""
-    out = []
-    for i, u in enumerate(names):
-        was = previous.get(player_key(u))
-        out.append(None if was is None else was - (i + 1))
-    return out
+def ranks_to_order(ranks):
+    """A {key: rank} map back into rank order. Ranks are unique and start at
+    one, so sorting by rank reconstructs the list exactly."""
+    return [k for k, _ in sorted(ranks.items(), key=lambda kv: kv[1])]
+
+
+def pick_baseline(history, now_id):
+    """The anchor the Move column is measured from: the most recent one at
+    least MOVE_WINDOW_HOURS older than the snapshot being published.
+
+    Before there is a full day of history, fall back to the oldest anchor
+    there is, so the column still says something true, just over a shorter
+    window. It widens on its own as the round runs."""
+    now = parse_snapshot(now_id)
+    # Only ever measure against something that genuinely came earlier. Without
+    # this, publishing a snapshot older than the stored anchors would compare
+    # it against the future and report movement backwards.
+    past = [h for h in history if parse_snapshot(h["as_of"]) < now]
+    if not past:
+        return None
+    cutoff = now - datetime.timedelta(hours=MOVE_WINDOW_HOURS)
+    older = [h for h in past if parse_snapshot(h["as_of"]) <= cutoff]
+    return older[-1] if older else past[0]
+
+
+def parse_snapshot(sid):
+    """Snapshot ids are canonical UTC isoformat, so this round-trips. An
+    unparseable one sorts as very old rather than crashing the build."""
+    try:
+        return datetime.datetime.fromisoformat(sid)
+    except (ValueError, TypeError):
+        return datetime.datetime.min.replace(tzinfo=datetime.timezone.utc)
+
+
+def movement(names, baseline):
+    """Spots gained since the baseline snapshot, positive for a climb. None
+    means the player was not in it, which the page shows as New rather than as
+    an improvement from nowhere."""
+    was = {}
+    if baseline:
+        was = {k: i + 1 for i, k in enumerate(baseline["order"])}
+    return [None if (p := was.get(player_key(u))) is None else p - (i + 1)
+            for i, u in enumerate(names)]
 
 
 def save_previous(names, when, data_as_of, state, path=PREV):
-    """Promote: what was shown becomes the baseline, this snapshot becomes
-    what is shown. Ranks are keyed by a truncated sha256 of the username, so
-    no real usernames reach this public repo."""
+    """Record this snapshot as an anchor, if the newest one is old enough to
+    need company, then drop anchors past the retention window.
+
+    Keys are a truncated sha256 of the username, so no real usernames reach
+    this public repo."""
+    history = list(state["history"])
+    now = parse_snapshot(data_as_of)
+
+    newest = parse_snapshot(history[-1]["as_of"]) if history else None
+    if newest is None or now - newest >= datetime.timedelta(hours=ANCHOR_SPACING_HOURS):
+        history.append({"as_of": data_as_of,
+                        "order": [player_key(u) for u in names]})
+
+    keep = now - datetime.timedelta(hours=HISTORY_KEEP_HOURS)
+    # Always leave two anchors standing, so a gap in refreshes cannot prune
+    # the history down to nothing and reset every arrow to New.
+    while len(history) > 2 and parse_snapshot(history[0]["as_of"]) < keep:
+        history.pop(0)
+
     path.write_text(json.dumps({
-        "_comment": "Movement state for the Move column. shown_* is the "
-                    "snapshot the page is built from; baseline_* is the one it "
-                    "is compared against. Keys are a truncated sha256 of the "
-                    "username. Delete this file to reset every arrow to New.",
+        "_comment": f"Movement state for the Move column, which reports "
+                    f"movement over {MOVE_WINDOW_HOURS} hours. Each history "
+                    f"entry is one standings snapshot, players in rank order, "
+                    f"keyed by a truncated sha256 of the username. Delete this "
+                    f"file to reset every arrow to New.",
         "written_at": when.isoformat(),
-        "shown_as_of": data_as_of,
-        "shown_ranks": {player_key(u): i + 1 for i, u in enumerate(names)},
-        "baseline_as_of": state.get("shown_as_of"),
-        "baseline_ranks": state.get("shown_ranks") or {},
+        "window_hours": MOVE_WINDOW_HOURS,
+        "history": history,
     }, indent=0, sort_keys=True) + "\n")
 
 
@@ -484,23 +558,30 @@ def main(argv=None):
 
     state = load_previous()
     data_as_of = cfg.get("_data_as_of") or when.isoformat()
-    republish = state["shown_as_of"] is not None and data_as_of == state["shown_as_of"]
-    # A republish of the same snapshot is compared against the same baseline it
-    # used the first time, so the arrows it shows do not change.
-    against = state["baseline_ranks"] if republish else state["shown_ranks"]
+    already_stored = data_as_of in [h["as_of"] for h in state["history"]]
 
-    deltas = movement(names, against)
+    # The baseline depends only on the snapshot being published and the stored
+    # history, never on how many times this has run, so republishing the same
+    # standings shows the same arrows rather than flattening them.
+    baseline = pick_baseline(state["history"], data_as_of)
+    deltas = movement(names, baseline)
     html, rows = render(names, cfg, when, deltas)
     args.out.write_text(html)
 
     # Only record once the page is written, so an aborted build cannot swallow
     # a round of movement.
-    if args.out != OUT:
-        pass
-    elif republish:
-        print(f"republish of the {data_as_of} snapshot; baseline held", file=sys.stderr)
-    else:
+    if args.out == OUT and not already_stored:
         save_previous(names, when, data_as_of, state)
+
+    if baseline:
+        age = parse_snapshot(data_as_of) - parse_snapshot(baseline["as_of"])
+        hours = age.total_seconds() / 3600
+        short = hours + 0.05 < MOVE_WINDOW_HOURS
+        print(f"movement measured over {hours:.1f}h"
+              + (f" (still filling the {MOVE_WINDOW_HOURS}h window)" if short else ""),
+              file=sys.stderr)
+    else:
+        print("no history yet; every player reads New", file=sys.stderr)
 
     moved = [d for d in deltas if d]
     print(f"movement: {sum(1 for d in deltas if d is None)} new, "
