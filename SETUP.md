@@ -173,6 +173,68 @@ CREATE TABLE IF NOT EXISTS gauntlet_standings (
 );
 ```
 
+---
+
+## Stage 5. Make Retool start the publish
+
+**Why.** GitHub's scheduler drops runs. Measured 2026-11-14: asked for a run
+every 15 minutes, it fired 3 times in 19 hours. Retool's hourly schedule, over
+the same period, fired every hour between :07 and :14 without missing. So the
+standings were being recalculated on time and simply never published, leaving
+the page up to six hours stale with a fresh snapshot already sitting in
+`retool_db`.
+
+The fix is to stop waiting on GitHub's clock. Retool already knows the moment
+new standings exist, so it tells GitHub to publish then. The GitHub cron stays
+on as a backstop. A publish that finds nothing changed commits nothing, so the
+two cannot fight.
+
+### 5a. Make the token
+
+GitHub, as Jordan, at https://github.com/settings/personal-access-tokens/new
+
+| Field | Value |
+|---|---|
+| Token name | `onyx-gauntlet-retool` |
+| Expiration | 1 year |
+| Resource owner | OnyxJordan |
+| Repository access | **Only select repositories** → `onyx-gauntlet` |
+| Permissions → Repository → **Actions** | **Read and write** |
+
+Generate, then copy the token. It is shown once. It is scoped to this one
+repository and can do nothing else, so it cannot touch Onyx-BB.
+
+### 5b. Give it to Retool
+
+Retool → **Settings** → **Config variables** → **New**
+
+- Key: `GITHUB_TOKEN`
+- Value: the token
+- Mark it a **secret** so it is write-only afterwards
+
+### 5c. Add the block
+
+Retool → Workflows → **gauntlet-refresh** → add a **Code** block (JavaScript,
+not Resource query) at the end, after `query1`. Paste the contents of
+[`retool/github-dispatch.js`](./retool/github-dispatch.js) from this repo.
+
+Then **Publish**. An unpublished change does nothing.
+
+### 5d. Check it
+
+Press **Run** at the top of `gauntlet-refresh`. The new block should return
+`{ dispatched: true, status: 204 }`, and a `publish` run should appear within
+seconds at
+https://github.com/OnyxJordan/onyx-gauntlet/actions
+
+If the block throws instead, the status code says which thing is wrong:
+
+| Status | Meaning |
+|---|---|
+| 401 | Token wrong, or expired |
+| 403 | Token is missing Actions "Read and write" |
+| 404 | Token cannot see the repository, so repository access was not set |
+
 ### Things that cost time, so they are written down
 
 - A **Resource query** block runs SQL; a **Code** block runs JavaScript. Pasting
