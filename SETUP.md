@@ -204,36 +204,53 @@ GitHub, as Jordan, at https://github.com/settings/personal-access-tokens/new
 Generate, then copy the token. It is shown once. It is scoped to this one
 repository and can do nothing else, so it cannot touch Onyx-BB.
 
-### 5b. Give it to Retool
+### 5b. Put the token on the resource
 
-Retool → **Settings** → **Config variables** → **New**
+The REST resource **GitHub publish (onyx-gauntlet)** already exists, with the
+base URL and GitHub headers set:
 
-- Key: `GITHUB_TOKEN`
-- Value: the token
-- Mark it a **secret** so it is write-only afterwards
+https://retoolonyx.retool.com/resources/d0a1a8c4-6379-4897-8519-f6620128df2e
+
+Add one header and save:
+
+| Key | Value |
+|---|---|
+| `Authorization` | `Bearer ` then the token, one space after Bearer |
 
 ### 5c. Add the block
 
-Retool → Workflows → **gauntlet-refresh** → add a **Code** block (JavaScript,
-not Resource query) at the end, after `query1`. Paste the contents of
-[`retool/github-dispatch.js`](./retool/github-dispatch.js) from this repo.
+Retool → Workflows → **gauntlet-refresh** → add a block at the end, after
+`query1`, on the **GitHub publish (onyx-gauntlet)** resource:
 
-Then **Publish**. An unpublished change does nothing.
+| Field | Value |
+|---|---|
+| Method | `POST` |
+| URL | `/repos/OnyxJordan/onyx-gauntlet/actions/workflows/publish.yml/dispatches` |
+| Body | Raw JSON, `{"ref": "main"}` |
+
+Then **Publish release**. An unpublished change does nothing.
+
+**It cannot be a Code block.** Retool Workflows' JavaScript runtime has no
+`fetch`, so a Code block fails with `ReferenceError: fetch is not defined`.
+HTTP calls go through a REST resource. Full detail in
+[`retool/github-dispatch.md`](./retool/github-dispatch.md).
 
 ### 5d. Check it
 
-Press **Run** at the top of `gauntlet-refresh`. The new block should return
-`{ dispatched: true, status: 204 }`, and a `publish` run should appear within
+Press **Run** at the top of `gauntlet-refresh`. The block should return **204**
+with an empty body, which is success, and a `publish` run should appear within
 seconds at
 https://github.com/OnyxJordan/onyx-gauntlet/actions
 
-If the block throws instead, the status code says which thing is wrong:
+If not, the status says which thing is wrong:
 
 | Status | Meaning |
 |---|---|
-| 401 | Token wrong, or expired |
+| 200 or 201 | Wrong URL. A dispatch returns 204 |
+| 401 | Token wrong, expired, or the `Bearer ` prefix is missing |
 | 403 | Token is missing Actions "Read and write" |
 | 404 | Token cannot see the repository, so repository access was not set |
+| 422 | Wrong `ref`. It must be `main` |
 
 ### Things that cost time, so they are written down
 

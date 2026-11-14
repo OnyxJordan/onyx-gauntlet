@@ -146,18 +146,23 @@ lever the cron itself offers.
 fire on time, so let it start the publish the moment it has new data. Add a
 final block to `gauntlet-refresh`, after the one that writes the snapshot:
 
-```js
-// Resource query, type REST / HTTP, or a JS block using fetch.
-// POST https://api.github.com/repos/OnyxJordan/onyx-gauntlet/actions/workflows/publish.yml/dispatches
-// Headers: Authorization: Bearer {{ retoolContext.configVars.GITHUB_TOKEN }}
-//          Accept: application/vnd.github+json
-// Body:    { "ref": "main" }
+It is a **resource query**, not a Code block. Retool Workflows' JavaScript
+runtime has no `fetch`, so a Code block fails with
+`ReferenceError: fetch is not defined`. HTTP goes through a REST resource.
+
+```
+Resource  GitHub publish (onyx-gauntlet)     base URL https://api.github.com
+POST      /repos/OnyxJordan/onyx-gauntlet/actions/workflows/publish.yml/dispatches
+Body      {"ref": "main"}                    raw JSON
 ```
 
-The token is a GitHub fine-grained personal access token scoped to this one
-repository with **Actions: read and write**, stored as a Retool config variable
-or secret. Nothing else changes: the cron stays as a backstop, and a publish
-started either way does the same work.
+The resource holds an `Authorization: Bearer <token>` header, where the token is
+a GitHub fine-grained personal access token scoped to this one repository with
+**Actions: read and write**. Success is a **204** with an empty body.
+
+Nothing else changes: the cron stays as a backstop, and a publish started either
+way does the same work. Step by step in
+[`retool/github-dispatch.md`](./retool/github-dispatch.md) and SETUP.md stage 5.
 
 **Why it is built this way.** Retool caps a *synchronous* webhook response at
 120 seconds. That is a platform limit, not a setting: raising a block timeout
