@@ -224,16 +224,37 @@ def player_key(u):
 
 
 def load_previous(path=PREV):
-    """{key: rank} from the last published run, or empty on the first run."""
+    """Movement state. Two snapshots are kept, not one:
+
+      shown_*     the standings snapshot the live page is built from
+      baseline_*  the snapshot before it, which shown_* is compared against
+
+    The publish job runs every 15 minutes while Retool refreshes hourly, so the
+    same snapshot gets published several times over. Comparing it against
+    itself would show arrows once and flatten them for the next three runs, so
+    a republish keeps using the same baseline and the arrows hold."""
+    blank = {"shown_as_of": None, "shown_ranks": {}, "baseline_ranks": {}}
     if not path.exists():
-        return {}
+        return blank
     try:
         prev = json.loads(path.read_text())
     except json.JSONDecodeError:
         print(f"{path} is unreadable; treating every player as new", file=sys.stderr)
-        return {}
-    ranks = prev.get("ranks")
-    return ranks if isinstance(ranks, dict) else {}
+        return blank
+    if "shown_ranks" not in prev and isinstance(prev.get("ranks"), dict):
+        # The first version of this file kept one snapshot under "ranks".
+        # Carry it forward as the shown snapshot rather than discarding it,
+        # which would cost a publish showing New against everybody.
+        return {
+            "shown_as_of": prev.get("data_as_of") or prev.get("as_of"),
+            "shown_ranks": prev["ranks"],
+            "baseline_ranks": {},
+        }
+    return {
+        "shown_as_of": prev.get("shown_as_of"),
+        "shown_ranks": prev.get("shown_ranks") or {},
+        "baseline_ranks": prev.get("baseline_ranks") or {},
+    }
 
 
 def movement(names, previous):
@@ -247,13 +268,20 @@ def movement(names, previous):
     return out
 
 
-def save_previous(names, when, path=PREV):
+def save_previous(names, when, data_as_of, state, path=PREV):
+    """Promote: what was shown becomes the baseline, this snapshot becomes
+    what is shown. Ranks are keyed by a truncated sha256 of the username, so
+    no real usernames reach this public repo."""
     path.write_text(json.dumps({
-        "_comment": "Ranks from the last published run, keyed by a truncated "
-                    "sha256 of the username so no real usernames are stored. "
-                    "Written by build.py; delete it to reset every arrow to New.",
-        "as_of": when.isoformat(),
-        "ranks": {player_key(u): i + 1 for i, u in enumerate(names)},
+        "_comment": "Movement state for the Move column. shown_* is the "
+                    "snapshot the page is built from; baseline_* is the one it "
+                    "is compared against. Keys are a truncated sha256 of the "
+                    "username. Delete this file to reset every arrow to New.",
+        "written_at": when.isoformat(),
+        "shown_as_of": data_as_of,
+        "shown_ranks": {player_key(u): i + 1 for i, u in enumerate(names)},
+        "baseline_as_of": state.get("shown_as_of"),
+        "baseline_ranks": state.get("shown_ranks") or {},
     }, indent=0, sort_keys=True) + "\n")
 
 
@@ -393,15 +421,26 @@ def main(argv=None):
     else:
         when = parse_when(None)
 
-    previous = load_previous()
-    deltas = movement(names, previous)
+    state = load_previous()
+    data_as_of = cfg.get("_data_as_of") or when.isoformat()
+    republish = state["shown_as_of"] is not None and data_as_of == state["shown_as_of"]
+    # A republish of the same snapshot is compared against the same baseline it
+    # used the first time, so the arrows it shows do not change.
+    against = state["baseline_ranks"] if republish else state["shown_ranks"]
+
+    deltas = movement(names, against)
     html, rows = render(names, cfg, when, deltas)
     args.out.write_text(html)
 
-    # Only record these ranks as "previous" once the page is actually written,
-    # so an aborted build cannot swallow a round of movement.
-    if args.out == OUT:
-        save_previous(names, when)
+    # Only record once the page is written, so an aborted build cannot swallow
+    # a round of movement.
+    if args.out != OUT:
+        pass
+    elif republish:
+        print(f"republish of the {data_as_of} snapshot; baseline held", file=sys.stderr)
+    else:
+        save_previous(names, when, data_as_of, state)
+
     moved = [d for d in deltas if d]
     print(f"movement: {sum(1 for d in deltas if d is None)} new, "
           f"{sum(1 for d in moved if d > 0)} up, {sum(1 for d in moved if d < 0)} down, "
