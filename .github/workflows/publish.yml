@@ -89,25 +89,57 @@ jobs:
           [ "${{ inputs.final }}" = "true" ] && args="$args --final"
           python3 build.py $args
 
+      # Two publishes can be in flight at once: Retool dispatches one the moment
+      # it parks a snapshot, and the cron backstop fires on its own schedule.
+      # When they overlap the second push is rejected with "fetch first" and
+      # that run dies, which happened on 2026-11-14.
+      #
+      # Rebasing is not the answer here. Both runs rewrite the same two files
+      # in full, so a rebase conflicts every time. Instead take whatever landed
+      # while we were working, build again on top of it, and push that. The
+      # rebuild is cheap: it reads the parked snapshot over the webhook in
+      # about 200ms and never touches the production database.
       - name: Commit if the standings changed
+        env:
+          FINAL: ${{ inputs.final }}
+          DRY: ${{ inputs.dry_run }}
         run: |
           git config user.name "onyx-gauntlet-bot"
           git config user.email "actions@users.noreply.github.com"
-          # previous.json must be committed too, not just the page: it carries
-          # the ranks the next run diffs against. Without it every run starts
-          # blank and the Move column reads New forever.
-          git add index.html previous.json
-          if git diff --cached --quiet; then
-            echo "no change"
-            exit 0
-          fi
-          if [ "${{ inputs.dry_run }}" = "true" ]; then
-            echo "dry run, not committing. Diff stat:"
-            git diff --cached --stat
-            exit 0
-          fi
-          git commit -m "Standings $(TZ=America/New_York date '+%Y-%m-%d %H:%M %Z')"
-          git push
+
+          build() {
+            args="--source retool"
+            [ "$FINAL" = "true" ] && args="$args --final"
+            python3 build.py $args
+          }
+
+          for attempt in 1 2 3; do
+            # previous.json must be committed too, not just the page: it carries
+            # the ranks the next run diffs against. Without it every run starts
+            # blank and the Move column reads New forever.
+            git add index.html previous.json
+            if git diff --cached --quiet; then
+              echo "no change"
+              exit 0
+            fi
+            if [ "$DRY" = "true" ]; then
+              echo "dry run, not committing. Diff stat:"
+              git diff --cached --stat
+              exit 0
+            fi
+            git commit -q -m "Standings $(TZ=America/New_York date '+%Y-%m-%d %H:%M %Z')"
+            if git push; then
+              exit 0
+            fi
+
+            echo "push rejected; another publish got there first. Rebuilding on top of it."
+            git fetch origin main
+            git reset --hard FETCH_HEAD
+            build
+          done
+
+          echo "::error::could not push after 3 attempts"
+          exit 1
 
       - name: Keep the rendered page as a run artifact
         if: always()
