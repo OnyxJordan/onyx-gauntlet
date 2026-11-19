@@ -28,5 +28,5 @@
   "excluded": [],
 
   "_final_comment": "Set true for the closing update of a round. Changes the hero line to 'Final Standings as of'.",
-  "final": false
+  "final": true
 }
