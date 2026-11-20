@@ -18,7 +18,12 @@
   var RAMP = ' .:-_;|!?*7=0123456789@';
   var TONES = {
     purple: [176, 56, 249], lilac: [215, 149, 255], blue: [99, 91, 255],
-    green: [97, 233, 112], white: [252, 252, 252]
+    green: [97, 233, 112], white: [252, 252, 252],
+    // Harvest tones, added here for the Thanksgiving round. This repository
+    // keeps its own copy of the engine, so these and the shapes below do not
+    // exist in onyx-baseball-fix. Keep them when syncing the engine back.
+    amber: [255, 168, 61], ember: [255, 122, 48], cranberry: [214, 58, 74],
+    wheat: [240, 200, 128]
   };
   var REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -51,6 +56,14 @@
       cut(c, function (c) { for (var i = -2; i <= 2; i++) { c.moveTo(i * 0.13, -0.13); c.lineTo(i * 0.13, 0.09); } }, 0.05);
       cut(c, function (c) { c.moveTo(-0.78, -0.3); c.quadraticCurveTo(-0.66, 0, -0.78, 0.3); c.moveTo(0.78, -0.3); c.quadraticCurveTo(0.66, 0, 0.78, 0.3); }, 0.05);
     });
+  }
+  // Half an outline, right side only, top to bottom; the left is mirrored from
+  // it so the shape cannot come out lopsided.
+  function mirrored(c, pts) {
+    c.beginPath(); c.moveTo(pts[0][0], pts[0][1]);
+    for (var i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
+    for (var j = pts.length - 1; j >= 0; j--) c.lineTo(-pts[j][0], pts[j][1]);
+    c.closePath(); c.fill();
   }
   var SHAPES = {
     wordmark: function (c) { fitPath(c, WORD, 218, 47, 0.04); },
@@ -158,6 +171,98 @@
         g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(1, 'rgba(255,255,255,0)');
         c.fillStyle = g; c.fillRect(0, 0, w, h);
       });
+    },
+
+    // ── Thanksgiving ─────────────────────────────────────────────
+    turkey: function (c) {
+      ball(c, function (c) {
+        c.save(); c.translate(0, 0.08);
+        // tail fan, then radial cuts to separate the feathers
+        c.beginPath(); c.moveTo(0.02, 0.26);
+        c.arc(0.02, 0.26, 1.0, Math.PI * 1.03, Math.PI * 1.97); c.closePath(); c.fill();
+        cut(c, function (c) {
+          for (var i = 0; i <= 6; i++) {
+            var a = Math.PI * (1.03 + 0.94 * i / 6);
+            c.moveTo(0.02 + Math.cos(a) * 0.26, 0.26 + Math.sin(a) * 0.26);
+            c.lineTo(0.02 + Math.cos(a) * 1.02, 0.26 + Math.sin(a) * 1.02);
+          }
+        }, 0.05);
+        cut(c, function (c) { c.arc(0.02, 0.26, 0.72, Math.PI * 1.03, Math.PI * 1.97); }, 0.04);
+        // body, neck, head
+        c.beginPath(); c.ellipse(0.0, 0.42, 0.44, 0.36, 0, 0, 7); c.fill();
+        c.beginPath(); c.moveTo(0.1, 0.22);
+        c.quadraticCurveTo(0.46, 0.14, 0.44, -0.12);
+        c.lineTo(0.2, -0.12); c.quadraticCurveTo(0.2, 0.08, -0.04, 0.2);
+        c.closePath(); c.fill();
+        c.beginPath(); c.arc(0.33, -0.22, 0.18, 0, 7); c.fill();
+        // beak and wattle
+        c.beginPath(); c.moveTo(0.48, -0.26); c.lineTo(0.74, -0.18); c.lineTo(0.48, -0.1); c.closePath(); c.fill();
+        c.beginPath(); c.ellipse(0.5, -0.02, 0.06, 0.13, 0, 0, 7); c.fill();
+        // legs
+        c.lineWidth = 0.065; c.lineCap = 'round';
+        c.beginPath();
+        c.moveTo(-0.1, 0.74); c.lineTo(-0.1, 0.92); c.moveTo(-0.24, 0.94); c.lineTo(0.02, 0.94);
+        c.moveTo(0.16, 0.74); c.lineTo(0.16, 0.92); c.moveTo(0.02, 0.94); c.lineTo(0.28, 0.94);
+        c.stroke();
+        cut(c, function (c) { c.moveTo(0.37, -0.27); c.lineTo(0.38, -0.27); }, 0.075);   // eye
+        c.restore();
+      });
+    },
+    leaf: function (c) {
+      ball(c, function (c) {
+        c.rotate(-0.18);
+        mirrored(c, [
+          [0, -0.98], [0.26, -0.5], [0.62, -0.6], [0.5, -0.22],
+          [1.0, -0.06], [0.58, 0.2], [0.68, 0.46], [0.26, 0.34],
+          [0.1, 0.44], [0.09, 0.84]
+        ]);
+        cut(c, function (c) {                       // veins
+          c.moveTo(0, 0.44); c.lineTo(0, -0.74);
+          c.moveTo(0, -0.08); c.lineTo(0.56, -0.36); c.moveTo(0, -0.08); c.lineTo(-0.56, -0.36);
+          c.moveTo(0, 0.18); c.lineTo(0.44, 0.3); c.moveTo(0, 0.18); c.lineTo(-0.44, 0.3);
+        }, 0.05);
+      });
+    },
+    acorn: function (c) {
+      ball(c, function (c) {
+        c.beginPath(); c.moveTo(-0.66, -0.16);
+        c.bezierCurveTo(-0.66, 0.96, 0.66, 0.96, 0.66, -0.16); c.closePath(); c.fill();
+        c.beginPath(); c.ellipse(0, -0.26, 0.78, 0.36, 0, 0, 7); c.fill();
+        cut(c, function (c) {
+          for (var i = -3; i <= 3; i++) { c.moveTo(i * 0.2, -0.58); c.lineTo(i * 0.2, 0.04); }
+          c.moveTo(-0.76, -0.1); c.lineTo(0.76, -0.1);
+        }, 0.04);
+        c.lineWidth = 0.12; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(0, -0.54); c.lineTo(0.03, -0.9); c.stroke();
+      });
+    },
+    pumpkin: function (c) {
+      ball(c, function (c) {
+        [[0, 0.78], [0.42, 0.56], [-0.42, 0.56], [0.72, 0.38], [-0.72, 0.38]].forEach(function (p) {
+          c.beginPath(); c.ellipse(p[0], 0.1, p[1], 0.76, 0, 0, 7); c.fill();
+        });
+        cut(c, function (c) {
+          [0.38, -0.38, 0.68, -0.68].forEach(function (x) {
+            c.moveTo(x, -0.6); c.bezierCurveTo(x * 1.1, -0.1, x * 1.1, 0.4, x, 0.74);
+          });
+        }, 0.035);
+        c.lineWidth = 0.12; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(0, -0.62); c.lineTo(0.04, -0.92); c.stroke();
+      });
+    },
+    wheat: function (c) {
+      ball(c, function (c) {
+        c.lineWidth = 0.07; c.lineCap = 'round';
+        c.beginPath(); c.moveTo(0, 0.98); c.quadraticCurveTo(-0.1, 0.3, 0, -0.5); c.stroke();
+        for (var i = 0; i < 6; i++) {
+          var y = -0.52 + i * 0.26, sp = 0.16 + i * 0.055;
+          [1, -1].forEach(function (s) {
+            c.save(); c.translate(s * sp, y); c.rotate(s * 0.7);
+            c.beginPath(); c.ellipse(0, 0, 0.085, 0.2, 0, 0, 7); c.fill(); c.restore();
+          });
+        }
+        c.beginPath(); c.ellipse(0, -0.78, 0.085, 0.2, 0, 0, 7); c.fill();
+      });
     }
   };
 
@@ -172,6 +277,12 @@
     this.calm = +cv.dataset.oxCalm || 1;    // < 1 = a quieter wave
     this.mx = -1e4; this.my = -1e4; this.tx = -1e4; this.ty = -1e4;
     this.visible = false; this.t0 = performance.now();
+    // data-ox-leaves: the pointer sheds leaves that flutter down and fade.
+    // They keep falling after the pointer has gone, which is the whole charm
+    // of it, so the frame loop stays awake while any are still in the air.
+    this.leaves = []; this.leavesOn = cv.dataset.oxLeaves !== undefined;
+    this.leafTone = TONES[cv.dataset.oxLeafTone] || TONES.ember;
+    this.lastSpawn = 0;
     this.resize();
     var self = this;
     var move = function (e) {
@@ -180,6 +291,10 @@
       // entering: jump straight to the pointer (easing in from -1e4 took 2-3 s to arrive)
       if (self.mx < -1e3) { self.mx = self.tx; self.my = self.ty; }
       self.hot = true;
+      if (self.leavesOn && !REDUCED) {
+        var nw = performance.now();
+        if (nw - self.lastSpawn > 70) { self.lastSpawn = nw; self.shed(self.tx, self.ty); }
+      }
       if (REDUCED) self.draw(performance.now()); else loop();
     };
     var host = cv.closest('[data-ox-host]') || cv;
@@ -206,6 +321,20 @@
     this.mask = a; this.mw = mw; this.mh = mh;
     this.w = w; this.h = h;
     return true;
+  };
+  // One leaf, dropped at the pointer. Everything is in grid cells per second,
+  // so a leaf falls at the same apparent speed whatever the cell size.
+  Art.prototype.shed = function (x, y) {
+    if (this.leaves.length > 64) return;   // a drag across the hero, not a blizzard
+    var r = Math.random;
+    this.leaves.push({
+      x: x + (r() - 0.5) * 2.4, y: y + (r() - 0.5) * 1.4,
+      r: 1.5 + r() * 1.5,
+      rot: r() * 6.283, spin: (r() - 0.5) * 2.6,
+      vy: 2.6 + r() * 3.4,
+      swayA: 1.4 + r() * 2.8, swayF: 0.8 + r() * 1.4, ph: r() * 6.283,
+      age: 0, life: 4.2 + r() * 3.4
+    });
   };
   Art.prototype.at = function (x, y) {
     var xi = Math.round(x * 2), yi = Math.round(y * 2);
@@ -241,6 +370,42 @@
         buckets[b].push(ch, x, y);
       }
     }
+    // ── falling leaves ───────────────────────────────────────────
+    // Advanced and drawn into their own buckets so they can carry a warmer
+    // colour than the shape behind them, but through the same ramp and the
+    // same grid, so they read as part of the art rather than sprites on top.
+    var lb = null;
+    if (this.leaves.length) {
+      var ds = dt / 1000;
+      lb = [[], [], [], [], [], [], [], []];
+      for (var li = this.leaves.length - 1; li >= 0; li--) {
+        var lf = this.leaves[li];
+        lf.age += ds;
+        lf.y += lf.vy * ds;
+        lf.x += Math.sin(lf.age * lf.swayF + lf.ph) * lf.swayA * ds;
+        lf.rot += lf.spin * ds;
+        if (lf.age > lf.life || lf.y > rows + 3) { this.leaves.splice(li, 1); continue; }
+        // in for a quarter second, out over the last second and a bit
+        var la = Math.min(1, lf.age / 0.25) * Math.min(1, (lf.life - lf.age) / 1.2);
+        var x0 = Math.max(0, Math.floor(lf.x - lf.r - 1)), x1 = Math.min(cols - 1, Math.ceil(lf.x + lf.r + 1));
+        var y0 = Math.max(0, Math.floor(lf.y - lf.r)), y1 = Math.min(rows - 1, Math.ceil(lf.y + lf.r));
+        for (var ly = y0; ly <= y1; ly++) {
+          for (var lx = x0; lx <= x1; lx++) {
+            var ex = lx - lf.x, ey = (ly - lf.y) * 1.6;    // cells are taller than wide
+            var ed = Math.sqrt(ex * ex + ey * ey);
+            // five lobes around the centre: a maple leaf, not a dot
+            var edge = lf.r * (0.58 + 0.42 * Math.abs(Math.cos(2.5 * (Math.atan2(ey, ex) - lf.rot))));
+            if (ed > edge) continue;
+            var lv = (1 - ed / edge) * la;
+            if (lv < 0.06) continue;
+            // same brightness floor the shape pass uses, or leaves read as dirt
+            lb[Math.min(7, Math.floor((0.3 + 0.7 * lv) * 8))]
+              .push(RAMP.charAt(1 + Math.floor(lv * (L - 1))), lx, ly);
+          }
+        }
+      }
+    }
+
     c.clearRect(0, 0, this.w, this.h);
     c.font = '500 ' + this.fs + 'px "Geist Mono", ui-monospace, Menlo, monospace';
     c.textBaseline = 'top';
@@ -249,6 +414,14 @@
       var arr = buckets[bi]; if (!arr.length) continue;
       c.fillStyle = 'rgba(' + tn[0] + ',' + tn[1] + ',' + tn[2] + ',' + ((bi + 1) / 8).toFixed(3) + ')';
       for (var j = 0; j < arr.length; j += 3) c.fillText(arr[j], arr[j + 1] * this.cw, arr[j + 2] * this.ch);
+    }
+    if (lb) {
+      var ln = this.leafTone;
+      for (var bl = 0; bl < 8; bl++) {
+        var la2 = lb[bl]; if (!la2.length) continue;
+        c.fillStyle = 'rgba(' + ln[0] + ',' + ln[1] + ',' + ln[2] + ',' + ((bl + 1) / 8).toFixed(3) + ')';
+        for (var jl = 0; jl < la2.length; jl += 3) c.fillText(la2[jl], la2[jl + 1] * this.cw, la2[jl + 2] * this.ch);
+      }
     }
   };
 
@@ -264,7 +437,9 @@
     arts.forEach(function (a) {
       if (!a.visible) return;
       any = true;
-      if (a.hot || idle) a.draw(now);
+      // leaves still in the air keep their canvas on the full frame clock, so
+      // they do not stutter at the idle 20fps once the pointer has gone
+      if (a.hot || a.leaves.length || idle) a.draw(now);
     });
     if (any) loop();
   }

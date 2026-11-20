@@ -129,33 +129,46 @@ generate; never retype.
 ## 6b. Look and feel
 
 The page follows the Onyx design system from `OnyxJordan/onyx-baseball-fix`
-(`onyx.css`), so the Gauntlet matches the rest of Onyx:
+(`onyx.css`), so the Gauntlet matches the rest of Onyx. Type and structure never
+change between rounds: Archivo at 125% width for the extended uppercase display,
+Geist Mono for labels, Doto for raster numerals, the mint-free sticky header,
+marquee, diamond-marked eyebrow, bracket buttons and raster art.
 
-- Tokens copied from that file's `:root`: `--ox-black:#0c0c0c`,
-  `--ox-ink:#08080a`, `--ox-white:#fcfcfc`, `--ox-body:#afa5bd`,
-  `--ox-stroke:#2f2f2f`, `--ox-purple:#b038f9`, `--ox-lilac:#d795ff`,
-  `--ox-green:#61e970`, `--ox-mint:#a5feaf`. No yellow.
-- Type: Archivo at 125% width for the extended uppercase display, Geist Mono
-  for labels, Doto for raster numerals (ranks and the stat strip).
-- Components reproduced inline: mint announcement bar, sticky header with the
-  real Onyx wordmark and mark, marquee, diamond-marked eyebrow, bracket
-  buttons, raster digit hero art.
-- Up/down/flat colours follow that site's `picks.html`:
-  `.pos{#61e970} .neg{#ff7a90} .mut{#9a93a6}`.
+**Only the palette changes for a seasonal round.** Every colour is a token on
+`:root`, including the channel forms `--ox-accent-rgb`, `--ox-black-rgb` and
+`--ox-stroke-rgb` that the row tints and sticky header use. Those channel
+tokens exist because the first Thanksgiving pass missed three `rgba(176,56,249)`
+literals and left purple podium rows under an orange theme.
 
-Keep it self contained. The real site loads `onyx.css` and `onyx.js`; this page
-inlines what it needs instead, because it has to work as one file.
+| Round | Accent | Tag to restore it |
+|---|---|---|
+| Nov 12 to 18, the house look | `--ox-purple:#b038f9` | `round-2026-11-12_purple` |
+| Nov 20 to 27, Thanksgiving | `--ox-purple:#ff8a3d` harvest orange, `--ox-lilac:#ffc46b` amber, warmed greys | current |
 
-## 6c. Movement arrows
+Restore an earlier look with
+`git checkout <tag> -- template.html onyx.js`, which leaves `round.json` and the
+standings alone.
 
-`previous.json` holds the last published run's ranks, keyed by
-`sha256(username)[:16]`. Masked names cannot be the key: they collide, and two
-players masking to the same string would swap arrows.
+Up/down/flat colours keep the meaning they have on `picks.html`, whatever the
+palette: green up, red down, muted flat, accent for New.
 
-`d` on each row is spots gained, positive for a climb, `null` for a player who
-was not in the previous standings (shown as New, not as a climb from nowhere).
-Previous ranks are saved only after the page is actually written, so an aborted
-build cannot swallow a round of movement.
+### The art engine
+
+`onyx.js` is copied from the baseball repo but **this copy has diverged**, and
+the extras must survive any resync:
+
+- Tones `amber`, `ember`, `cranberry`, `wheat` beside the house purple set.
+- Shapes `turkey`, `leaf`, `acorn`, `pumpkin`, `wheat`, drawn with ordinary
+  canvas calls in the unit box `ball()` sets up, the same way the ball sports
+  are drawn, so they rasterise into the character ramp like everything else.
+- **Falling leaves.** `data-ox-leaves` on a canvas makes the pointer shed leaves
+  that flutter down, sway and fade. Each is a five-lobed radial blob drawn
+  through the same ramp and grid as the shape behind it, in its own colour from
+  `data-ox-leaf-tone`, so it reads as part of the art rather than a sprite on
+  top. They keep falling after the pointer leaves, so `tick()` treats a canvas
+  with leaves in the air as hot and gives it the full frame clock instead of the
+  idle 20fps. Capped at 64, spawned at most every 70ms, and switched off
+  entirely under `prefers-reduced-motion`.
 
 ## 7. Gotchas
 

@@ -2,23 +2,23 @@
   "_comment": "The current Gauntlet round. This is the only file that changes between rounds.",
 
   "_window_comment": "Inclusive YYYY-MM-DD bounds, Eastern. Must match the Custom range you set on the dashboard's Leaderboard tab.",
-  "start_date": "2026-11-12",
-  "end_date": "2026-11-18",
+  "start_date": "2026-11-20",
+  "end_date": "2026-11-27",
 
   "_prizes_comment": "Keys are a rank ('7') or an inclusive range ('10-20'). 'pool' is a checksum: the build aborts if the ladder does not sum to it. These values mirror PRIZE_TABLE in the dashboard's frontend/utils/format.ts, so change both together.",
   "cap": 1000,
-  "pool": 10000,
+  "pool": 20000,
   "prizes": {
-    "1": 2500,
-    "2": 2000,
-    "3": 1500,
-    "4": 1000,
-    "5": 750,
-    "6": 500,
-    "7": 250,
-    "8": 200,
-    "9": 200,
-    "10-20": 100
+    "1": 4000,
+    "2": 3000,
+    "3": 2000,
+    "4": 1600,
+    "5": 1500,
+    "6": 1000,
+    "7": 800,
+    "8-10": 500,
+    "11-16": 200,
+    "17-50": 100
   },
 
   "_affiliate_comment": "An affiliate is a user whose id owns a Promotion. They belong IN the standings: some of them promote the leaderboard, so excluding the whole group was wrong. Keep this false and take out individuals with 'excluded' below. On the dashboard this is the Affiliates toggle, which should be left on All.",
@@ -28,5 +28,5 @@
   "excluded": [],
 
   "_final_comment": "Set true for the closing update of a round. Changes the hero line to 'Final Standings as of'.",
-  "final": true
+  "final": false
 }

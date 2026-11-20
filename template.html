@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0c0c0c">
-<title>Onyx Odds — Mini Games Gauntlet</title>
-<meta name="description" content="Live standings for the Onyx Mini Games Gauntlet.">
+<meta name="theme-color" content="#0e0a07">
+<title>Onyx Odds — Thanksgiving Gauntlet</title>
+<meta name="description" content="Live standings for the Onyx Thanksgiving Gauntlet.">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Geist+Mono:wght@400;500;700&family=Doto:wght@800;900&display=swap');
 
@@ -14,12 +14,19 @@
    mono labels, bracket buttons, dot-ended rules. No yellow.
    pos/neg/mut follow the convention set in that site's picks.html. */
 :root{
-  --ox-black:#0c0c0c; --ox-ink:#08080a; --ox-700:#211b25; --ox-600:#373739;
-  --ox-400:#9b9b9b; --ox-200:#d4d4d4; --ox-white:#fcfcfc; --ox-body:#afa5bd;
-  --ox-stroke:#2f2f2f;
-  --ox-purple:#b038f9; --ox-purple-d:#8d16b8; --ox-lilac:#d795ff;
-  --ox-blue:#635bff; --ox-green:#61e970; --ox-mint:#a5feaf;
-  --ox-neg:#ff7a90; --ox-mut:#9a93a6;
+  /* Thanksgiving round. Same structure and type as the Onyx house theme, with
+     the purple accents swapped for harvest ones and the greys warmed. The
+     purple build is tagged round-2026-11-12_purple; restore it with
+     git checkout round-2026-11-12_purple -- template.html onyx.js */
+  --ox-black:#0e0a07; --ox-ink:#080604; --ox-700:#2a1f16; --ox-600:#3d3228;
+  --ox-400:#9b8f80; --ox-200:#d8cec1; --ox-white:#fdf8f2; --ox-body:#bdae9e;
+  --ox-stroke:#3a2b20;
+  --ox-purple:#ff8a3d; --ox-purple-d:#c2511a; --ox-lilac:#ffc46b;
+  --ox-blue:#d63a4a; --ox-green:#8fd36a; --ox-mint:#cdeab0;
+  --ox-neg:#e8646f; --ox-mut:#9a8d7e;
+  /* channel form of the accent, the base and the rule, so the row tints and
+     the sticky header follow a theme change instead of being retyped. */
+  --ox-accent-rgb:255,138,61; --ox-black-rgb:14,10,7; --ox-stroke-rgb:58,43,32;
   --ox-display:'Archivo',system-ui,sans-serif;
   --ox-mono:'Geist Mono',ui-monospace,'SF Mono',Menlo,monospace;
   --ox-raster:'Doto','Geist Mono',monospace;
@@ -32,7 +39,7 @@ a{color:inherit;text-decoration:none}
 .wrap{width:100%;max-width:1320px;margin:0 auto;padding:0 clamp(16px,4vw,48px)}
 
 /* header. Carries the safe-area inset itself now that nothing sits above it. */
-.head{position:sticky;top:0;z-index:50;background:rgba(12,12,12,.9);
+.head{position:sticky;top:0;z-index:50;background:rgba(var(--ox-black-rgb),.9);
   backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);padding-top:var(--ox-sat)}
 .head-in{display:flex;align-items:center;justify-content:space-between;gap:16px;height:64px}
 .brand{display:flex;align-items:center;gap:12px;min-width:0}
@@ -77,11 +84,14 @@ a{color:inherit;text-decoration:none}
 
 /* hero */
 .hero{position:relative;overflow:hidden;padding:clamp(34px,7vw,76px) 0 0}
-.hero-art{position:absolute;inset:0;width:100%;height:100%;opacity:.4;pointer-events:none}
+.hero-art{position:absolute;inset:0;width:100%;height:100%;opacity:.26;pointer-events:none}
 .hero-in{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:18px;
   text-align:center;padding-bottom:clamp(26px,4vw,44px)}
-.hero h1{margin:0;font:800 clamp(52px,13vw,168px)/.86 var(--ox-display);font-stretch:125%;
-  text-transform:uppercase;letter-spacing:-.012em}
+/* Sized for THANKSGIVING, twelve characters of 125%-width Archivo. The old
+   13vw was set for the three letters of THE and clipped this off both edges
+   on a phone. */
+.hero h1{margin:0;font:800 clamp(27px,8.4vw,128px)/.9 var(--ox-display);font-stretch:125%;
+  text-transform:uppercase;letter-spacing:-.018em}
 .hero h1 em{font-style:normal;color:var(--ox-purple)}
 .hero-sub{max-width:620px;font:500 clamp(11px,1.15vw,13px)/1.7 var(--ox-mono);letter-spacing:.05em;
   text-transform:uppercase;color:var(--ox-body)}
@@ -124,19 +134,19 @@ thead th{padding:13px 16px;text-align:left;font:500 10px var(--ox-mono);letter-s
 thead th:hover{color:var(--ox-white)}
 thead th.on{color:var(--ox-purple)}
 thead th.prize,td.prize{text-align:right}
-tbody tr{border-bottom:1px solid rgba(47,47,47,.55);transition:background .12s}
+tbody tr{border-bottom:1px solid rgba(var(--ox-stroke-rgb),.55);transition:background .12s}
 tbody tr:last-child{border-bottom:0}
-tbody tr:hover{background:rgba(176,56,249,.055)}
-tbody tr.t1{background:rgba(176,56,249,.10)}
-tbody tr.t2{background:rgba(176,56,249,.065)}
-tbody tr.t3{background:rgba(176,56,249,.04)}
+tbody tr:hover{background:rgba(var(--ox-accent-rgb),.06)}
+tbody tr.t1{background:rgba(var(--ox-accent-rgb),.11)}
+tbody tr.t2{background:rgba(var(--ox-accent-rgb),.07)}
+tbody tr.t3{background:rgba(var(--ox-accent-rgb),.045)}
 td{padding:13px 16px;vertical-align:middle}
 .rk{font:900 20px/1 var(--ox-raster);color:var(--ox-200);min-width:30px;display:inline-block}
 tr.t1 .rk,tr.t2 .rk,tr.t3 .rk{color:var(--ox-purple);font-size:24px}
 .who{font:500 13px var(--ox-mono);letter-spacing:.06em;color:var(--ox-white)}
 .pz{display:inline-block;border:1px solid var(--ox-purple);color:var(--ox-lilac);
   font:500 11px var(--ox-mono);letter-spacing:.06em;padding:4px 11px;border-radius:999px}
-tr.t1 .pz{background:var(--ox-purple);color:#fff}
+tr.t1 .pz{background:var(--ox-purple);color:#241206}
 .pz0{color:var(--ox-600);font:500 12px var(--ox-mono)}
 
 /* movement since the previous update */
@@ -150,6 +160,17 @@ tr.t1 .pz{background:var(--ox-purple);color:#fff}
 .empty{padding:56px 16px;text-align:center}
 .empty b{display:block;font:800 18px var(--ox-display);font-stretch:125%;text-transform:uppercase;color:var(--ox-200);margin-bottom:8px}
 .empty i{font:500 12px var(--ox-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ox-400);font-style:normal}
+
+/* harvest row: the same raster art as the hero, small, above the terms */
+.harvest{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;
+  max-width:880px;margin:52px auto 0}
+.harvest canvas{width:100%;height:164px;display:block}
+/* Three on a phone, larger, rather than five illegible ones. */
+@media(max-width:560px){
+  .harvest{grid-template-columns:repeat(3,1fr);gap:8px;max-width:360px}
+  .harvest canvas{height:108px}
+  .harvest canvas:nth-child(n+4){display:none}
+}
 
 /* tournament terms */
 .terms{max-width:720px;margin:56px auto 0;padding-top:30px;
@@ -213,10 +234,11 @@ footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:upp
 <div class="marq" aria-hidden="true"><div id="mq"></div></div>
 
 <section class="hero" data-ox-host>
-  <canvas class="hero-art" data-ox-art="field" data-ox-tone="purple" data-ox-fade="0" data-ox-calm=".6" aria-hidden="true"></canvas>
+  <canvas class="hero-art" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".6"
+          data-ox-leaves data-ox-leaf-tone="ember" aria-hidden="true"></canvas>
   <div class="wrap hero-in">
-    <span class="eyebrow">Mini Games</span>
-    <h1>The <em>Gauntlet</em></h1>
+    <span class="eyebrow">Thanksgiving</span>
+    <h1>Thanksgiving <em>Gauntlet</em></h1>
     <p class="hero-round">__ROUND__</p>
     <p class="hero-sub">__UPDATED__</p>
   </div>
@@ -265,10 +287,18 @@ footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:upp
       show places gained or lost over the last 24 hours.
     </p>
 
+    <div class="harvest" aria-hidden="true">
+      <canvas data-ox-art="leaf" data-ox-tone="ember" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="acorn" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="pumpkin" data-ox-tone="ember" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="wheat" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+    </div>
+
     <section class="terms">
       <h2>Tournament Terms</h2>
       <ul>
-        <li>The Mini Games Gauntlet runs __ROUND__, inclusive, Eastern time.</li>
+        <li>The Thanksgiving Gauntlet runs __ROUND__, inclusive, Eastern time.</li>
         <li>Players are ranked by total amount staked on Onyx Mini Games during
             that window. Sweepstakes play only. Where two players are level, the
             one who has played more rounds ranks higher.</li>
@@ -286,7 +316,7 @@ footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:upp
 
 <footer>
   <div class="wrap">
-    <p>Onyx Odds &middot; Mini Games Gauntlet<br>No purchase necessary. 18+. Terms apply.</p>
+    <p>Onyx Odds &middot; Thanksgiving Gauntlet<br>No purchase necessary. 18+. Terms apply.</p>
   </div>
 </footer>
 
@@ -297,7 +327,9 @@ var ALL=__DATA__;
 (function(){
   var el=document.getElementById('mq');
   if(!el)return;
-  var words=['Mini Games Gauntlet','Live Standings','10,000 Bonus Onyx Cash','Top 20 Win','Ranked By Stake'];
+  /* __POOL__ and __PLACES__ are filled from round.json at build time, so the
+     marquee cannot promise a pool or a place count the board does not pay. */
+  var words=['Thanksgiving Gauntlet','Live Standings','__POOL__ Bonus Onyx Cash','Top __PLACES__ Win','Ranked By Stake'];
   var run='';
   for(var k=0;k<2;k++){
     run+='<span>';
