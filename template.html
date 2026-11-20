@@ -83,8 +83,18 @@ a{color:inherit;text-decoration:none}
 @keyframes marq{to{transform:translateX(-50%)}}
 
 /* hero */
-.hero{position:relative;overflow:hidden;padding:clamp(34px,7vw,76px) 0 0}
-.hero-art{position:absolute;inset:0;width:100%;height:100%;opacity:.26;pointer-events:none}
+.hero{position:relative;overflow:hidden;padding:clamp(34px,7vw,76px) 0 clamp(178px,19vw,262px)}
+/* Ambient only. At .3 it was as loud as the turkey, and two fields of orange
+   characters at the same weight read as noise rather than as a bird. */
+.hero-art{position:absolute;inset:0;width:100%;height:100%;opacity:.13;pointer-events:none}
+/* The turkey sits in its own corner rather than behind the headline, where it
+   was unreadable. The hero's bottom padding is what gives it the room. */
+.hero-turkey{position:absolute;left:clamp(8px,4vw,64px);bottom:clamp(6px,1.4vw,20px);
+  width:clamp(158px,19vw,248px);height:clamp(150px,17vw,228px);
+  opacity:1;pointer-events:none;z-index:1}
+@media(max-width:560px){
+  .hero-turkey{left:6px;bottom:6px;width:158px;height:150px;opacity:1}
+}
 .hero-in{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:18px;
   text-align:center;padding-bottom:clamp(26px,4vw,44px)}
 /* Sized for THANKSGIVING, twelve characters of 125%-width Archivo. The old
@@ -234,8 +244,12 @@ footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:upp
 <div class="marq" aria-hidden="true"><div id="mq"></div></div>
 
 <section class="hero" data-ox-host>
-  <canvas class="hero-art" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".6"
+  <!-- Full bleed: the ambient texture, and the surface the leaves cascade over.
+       The turkey is its own canvas below so it is not lost behind the title. -->
+  <canvas class="hero-art" data-ox-art="field" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".6"
           data-ox-leaves data-ox-leaf-tone="ember" aria-hidden="true"></canvas>
+  <canvas class="hero-turkey" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
+          data-ox-calm=".45" data-ox-cell="7" aria-hidden="true"></canvas>
   <div class="wrap hero-in">
     <span class="eyebrow">Thanksgiving</span>
     <h1>Thanksgiving <em>Gauntlet</em></h1>

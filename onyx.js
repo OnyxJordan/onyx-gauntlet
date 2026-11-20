@@ -293,7 +293,23 @@
       self.hot = true;
       if (self.leavesOn && !REDUCED) {
         var nw = performance.now();
-        if (nw - self.lastSpawn > 70) { self.lastSpawn = nw; self.shed(self.tx, self.ty); }
+        // pointer speed in cells per second, so leaves can be thrown along the
+        // direction of the swipe and shoved aside as it passes
+        var gap = nw - (self.pt || nw - 16);
+        if (gap > 0) {
+          var ivx = (self.tx - (self.ptx === undefined ? self.tx : self.ptx)) * 1000 / gap;
+          var ivy = (self.ty - (self.pty === undefined ? self.ty : self.pty)) * 1000 / gap;
+          // a dropped frame should not read as a flick across the whole hero
+          self.pvx = Math.max(-140, Math.min(140, ivx));
+          self.pvy = Math.max(-140, Math.min(140, ivy));
+        }
+        self.pt = nw; self.ptx = self.tx; self.pty = self.ty;
+        if (nw - self.lastSpawn > 26) {
+          self.lastSpawn = nw;
+          self.shed(self.tx, self.ty);
+          // a fast drag lays down a denser trail, so the cascade keeps up
+          if (Math.abs(self.pvx) + Math.abs(self.pvy) > 26) self.shed(self.tx, self.ty);
+        }
       }
       if (REDUCED) self.draw(performance.now()); else loop();
     };
@@ -325,14 +341,17 @@
   // One leaf, dropped at the pointer. Everything is in grid cells per second,
   // so a leaf falls at the same apparent speed whatever the cell size.
   Art.prototype.shed = function (x, y) {
-    if (this.leaves.length > 64) return;   // a drag across the hero, not a blizzard
+    if (this.leaves.length > 150) return;   // a cascade, still not a blizzard
     var r = Math.random;
     this.leaves.push({
-      x: x + (r() - 0.5) * 2.4, y: y + (r() - 0.5) * 1.4,
-      r: 1.5 + r() * 1.5,
-      rot: r() * 6.283, spin: (r() - 0.5) * 2.6,
-      vy: 2.6 + r() * 3.4,
-      swayA: 1.4 + r() * 2.8, swayF: 0.8 + r() * 1.4, ph: r() * 6.283,
+      x: x + (r() - 0.5) * 2.2, y: y + (r() - 0.5) * 1.3,
+      r: 1.4 + r() * 1.6,
+      rot: r() * 6.283, spin: (r() - 0.5) * 3.4,
+      // thrown along the swipe, then it bleeds off and the leaf falls
+      vx: (this.pvx || 0) * 0.3 + (r() - 0.5) * 3,
+      vy: (this.pvy || 0) * 0.22 + (r() - 0.5) * 2,
+      term: 2.6 + r() * 3.6,                // the speed it settles to falling at
+      swayA: 1.4 + r() * 3, swayF: 0.8 + r() * 1.5, ph: r() * 6.283,
       age: 0, life: 4.2 + r() * 3.4
     });
   };
@@ -381,8 +400,29 @@
       for (var li = this.leaves.length - 1; li >= 0; li--) {
         var lf = this.leaves[li];
         lf.age += ds;
+
+        // The pointer shoves leaves out of its way and drags them round it, so
+        // moving through the cascade parts it instead of passing through. The
+        // swirl term is what makes them curl rather than just scatter.
+        if (this.tx > -1e3) {
+          var px = lf.x - this.tx, py = (lf.y - this.ty) * 1.6;
+          var pd2 = px * px + py * py, PR = 8;
+          if (pd2 < PR * PR && pd2 > 0.01) {
+            var pd = Math.sqrt(pd2), near = 1 - pd / PR;
+            var sp = Math.min(70, Math.sqrt((this.pvx || 0) * (this.pvx || 0) + (this.pvy || 0) * (this.pvy || 0)));
+            var shove = near * (7 + sp * 0.55) * ds;
+            lf.vx += (px / pd) * shove + (-py / pd) * near * sp * 0.14 * ds;
+            lf.vy += (py / pd) * shove * 0.5 + (px / pd) * near * sp * 0.11 * ds;
+          }
+        }
+
+        // sideways motion bleeds off; downward settles back to a falling leaf
+        var damp = Math.pow(0.1, ds);
+        lf.vx *= damp;
+        lf.vy += (lf.term - lf.vy) * Math.min(1, 2.6 * ds);
+
+        lf.x += (lf.vx + Math.sin(lf.age * lf.swayF + lf.ph) * lf.swayA) * ds;
         lf.y += lf.vy * ds;
-        lf.x += Math.sin(lf.age * lf.swayF + lf.ph) * lf.swayA * ds;
         lf.rot += lf.spin * ds;
         if (lf.age > lf.life || lf.y > rows + 3) { this.leaves.splice(li, 1); continue; }
         // in for a quarter second, out over the last second and a bit
