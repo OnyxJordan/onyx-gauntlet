@@ -275,6 +275,10 @@
     this.cell = +cv.dataset.oxCell || 0;
     this.fade = cv.dataset.oxFade !== '0';
     this.calm = +cv.dataset.oxCalm || 1;    // < 1 = a quieter wave
+    // data-ox-lens="0": no pointer bulge and no ripple ring. On the
+    // Thanksgiving hero the pointer is supposed to shed leaves, and the lens
+    // read as a competing water ripple underneath them.
+    this.lens = cv.dataset.oxLens !== '0';
     this.mx = -1e4; this.my = -1e4; this.tx = -1e4; this.ty = -1e4;
     this.visible = false; this.t0 = performance.now();
     // data-ox-leaves: the pointer sheds leaves that flutter down and fade.
@@ -373,7 +377,7 @@
       var fade = this.fade ? 1 - 0.62 * (y / rows) : 1;
       for (var x = 0; x < cols; x++) {
         var dx = x - this.mx, dy = (y - this.my) * 1.6, d2 = dx * dx + dy * dy;
-        var k = d2 < R2 * 9 ? Math.exp(-d2 / R2) : 0;
+        var k = (this.lens && d2 < R2 * 9) ? Math.exp(-d2 / R2) : 0;
         // the lens: cells near the pointer sample the shape further out, so
         // the letters bulge and swirl around it like the onyxodds.com footer
         var sw = Math.sin(y * 0.21 + t * 1.4) * 0.55;
