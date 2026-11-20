@@ -66,6 +66,9 @@
     c.closePath(); c.fill();
   }
   var SHAPES = {
+    // Draws nothing: for a canvas that exists only to carry falling leaves,
+    // so they can sit at full opacity over a dimmed texture canvas.
+    none: function () {},
     wordmark: function (c) { fitPath(c, WORD, 218, 47, 0.04); },
     mark: function (c) { fitPath(c, MARK, 100, 137, 0.1); },
     basketball: function (c) {
@@ -266,6 +269,21 @@
     }
   };
 
+  // The falling leaves draw the real leaf silhouette. Rasterised once into an
+  // alpha grid here, then every particle samples it with its own rotation and
+  // size, so a leaf on the wind is the same shape as the one in the harvest
+  // row rather than a lookalike.
+  var LEAFN = 56, LEAFMASK = null;
+  function leafMask() {
+    if (LEAFMASK) return LEAFMASK;
+    var c = document.createElement('canvas'); c.width = c.height = LEAFN;
+    var g = c.getContext('2d'); g.fillStyle = '#fff'; g.strokeStyle = '#fff';
+    SHAPES.leaf(g);
+    var d = g.getImageData(0, 0, LEAFN, LEAFN).data, a = new Float32Array(LEAFN * LEAFN);
+    for (var i = 0; i < a.length; i++) a[i] = d[i * 4 + 3] / 255;
+    LEAFMASK = a; return a;
+  }
+
   // ── the renderer ───────────────────────────────────────────────
   var arts = [];
   function Art(cv) {
@@ -345,11 +363,11 @@
   // One leaf, dropped at the pointer. Everything is in grid cells per second,
   // so a leaf falls at the same apparent speed whatever the cell size.
   Art.prototype.shed = function (x, y) {
-    if (this.leaves.length > 150) return;   // a cascade, still not a blizzard
+    if (this.leaves.length > 46) return;    // big leaves, so fewer of them
     var r = Math.random;
     this.leaves.push({
       x: x + (r() - 0.5) * 2.2, y: y + (r() - 0.5) * 1.3,
-      r: 1.4 + r() * 1.6,
+      r: 7.2 + r() * 4.6,                  // in cells; big enough to read as a leaf
       rot: r() * 6.283, spin: (r() - 0.5) * 3.4,
       // thrown along the swipe, then it bleeds off and the leaf falls
       vx: (this.pvx || 0) * 0.3 + (r() - 0.5) * 3,
@@ -431,19 +449,28 @@
         if (lf.age > lf.life || lf.y > rows + 3) { this.leaves.splice(li, 1); continue; }
         // in for a quarter second, out over the last second and a bit
         var la = Math.min(1, lf.age / 0.25) * Math.min(1, (lf.life - lf.age) / 1.2);
-        var x0 = Math.max(0, Math.floor(lf.x - lf.r - 1)), x1 = Math.min(cols - 1, Math.ceil(lf.x + lf.r + 1));
-        var y0 = Math.max(0, Math.floor(lf.y - lf.r)), y1 = Math.min(rows - 1, Math.ceil(lf.y + lf.r));
+        // The leaf itself, sampled from the real maple silhouette rather than
+        // approximated. A lobed blob never read as a leaf at any size; this is
+        // the same shape the harvest row draws, rotated per particle.
+        var LM = leafMask(), LN = LEAFN;
+        var cs = Math.cos(lf.rot), sn = Math.sin(lf.rot);
+        var rx = lf.r, ry = lf.r;
+        var x0 = Math.max(0, Math.floor(lf.x - rx - 1)), x1 = Math.min(cols - 1, Math.ceil(lf.x + rx + 1));
+        var y0 = Math.max(0, Math.floor(lf.y - ry / 1.6 - 1)), y1 = Math.min(rows - 1, Math.ceil(lf.y + ry / 1.6 + 1));
         for (var ly = y0; ly <= y1; ly++) {
           for (var lx = x0; lx <= x1; lx++) {
             var ex = lx - lf.x, ey = (ly - lf.y) * 1.6;    // cells are taller than wide
-            var ed = Math.sqrt(ex * ex + ey * ey);
-            // five lobes around the centre: a maple leaf, not a dot
-            var edge = lf.r * (0.58 + 0.42 * Math.abs(Math.cos(2.5 * (Math.atan2(ey, ex) - lf.rot))));
-            if (ed > edge) continue;
-            var lv = (1 - ed / edge) * la;
-            if (lv < 0.06) continue;
+            // rotate the sample back into the leaf's own frame
+            var u = ex * cs + ey * sn, v = -ex * sn + ey * cs;
+            if (u < -rx || u > rx || v < -ry || v > ry) continue;
+            var mx = ((u / rx) * 0.5 + 0.5) * (LN - 1);
+            var my = ((v / ry) * 0.5 + 0.5) * (LN - 1);
+            var m = LM[(my | 0) * LN + (mx | 0)];
+            if (m < 0.25) continue;
+            var lv = m * la;
+            if (lv < 0.08) continue;
             // same brightness floor the shape pass uses, or leaves read as dirt
-            lb[Math.min(7, Math.floor((0.3 + 0.7 * lv) * 8))]
+            lb[Math.min(7, Math.floor((0.34 + 0.66 * lv) * 8))]
               .push(RAMP.charAt(1 + Math.floor(lv * (L - 1))), lx, ly);
           }
         }

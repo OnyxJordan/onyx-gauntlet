@@ -162,13 +162,25 @@ the extras must survive any resync:
   canvas calls in the unit box `ball()` sets up, the same way the ball sports
   are drawn, so they rasterise into the character ramp like everything else.
 - **Falling leaves.** `data-ox-leaves` on a canvas makes the pointer shed leaves
-  that flutter down, sway and fade. Each is a five-lobed radial blob drawn
-  through the same ramp and grid as the shape behind it, in its own colour from
-  `data-ox-leaf-tone`, so it reads as part of the art rather than a sprite on
-  top. They keep falling after the pointer leaves, so `tick()` treats a canvas
-  with leaves in the air as hot and gives it the full frame clock instead of the
-  idle 20fps. Capped at 64, spawned at most every 70ms, and switched off
-  entirely under `prefers-reduced-motion`.
+  that are thrown along the swipe, flutter down, sway and fade, and that the
+  pointer shoves aside and drags around itself so the cascade parts rather than
+  being passed through. They keep falling after the pointer leaves, so `tick()`
+  treats a canvas with leaves in the air as hot and gives it the full frame
+  clock instead of the idle 20fps. Capped at 46, spawned every 26ms (twice on a
+  fast drag), and off entirely under `prefers-reduced-motion`.
+
+  Three things here were each a failed attempt first, so do not undo them:
+
+  - **They sample the real `SHAPES.leaf` silhouette**, rasterised once into
+    `LEAFMASK` and read back per particle with that particle's rotation and
+    size. A five-lobed radial blob was tried and never read as a leaf at any
+    size.
+  - **They have their own canvas** (`.hero-leaves`, `data-ox-art="none"`, which
+    draws nothing). Sharing the textured canvas meant the opacity that quietened
+    the background texture dimmed the leaves to the same 13%.
+  - **`data-ox-lens="0"`** switches off the pointer bulge and ripple for a
+    canvas. With the lens left on, the leaves looked like debris on water rather
+    than a cascade. The lens stays on everywhere else.
 
 ## 7. Gotchas
 
