@@ -83,17 +83,17 @@ a{color:inherit;text-decoration:none}
 @keyframes marq{to{transform:translateX(-50%)}}
 
 /* hero */
-.hero{position:relative;overflow:hidden;padding:clamp(34px,7vw,76px) 0 clamp(178px,19vw,262px)}
+.hero{position:relative;overflow:hidden;padding:clamp(34px,7vw,76px) 0 clamp(132px,13vw,186px)}
 /* Ambient only. At .3 it was as loud as the turkey, and two fields of orange
    characters at the same weight read as noise rather than as a bird. */
 .hero-art{position:absolute;inset:0;width:100%;height:100%;opacity:.13;pointer-events:none}
 /* The turkey sits in its own corner rather than behind the headline, where it
    was unreadable. The hero's bottom padding is what gives it the room. */
 .hero-turkey{position:absolute;left:clamp(8px,4vw,64px);bottom:clamp(6px,1.4vw,20px);
-  width:clamp(158px,19vw,248px);height:clamp(150px,17vw,228px);
+  width:clamp(116px,13vw,178px);height:clamp(112px,12vw,166px);
   opacity:1;pointer-events:none;z-index:1}
 @media(max-width:560px){
-  .hero-turkey{left:6px;bottom:6px;width:158px;height:150px;opacity:1}
+  .hero-turkey{left:6px;bottom:6px;width:118px;height:112px;opacity:1}
 }
 .hero-in{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:18px;
   text-align:center;padding-bottom:clamp(26px,4vw,44px)}
@@ -103,6 +103,13 @@ a{color:inherit;text-decoration:none}
 .hero h1{margin:0;font:800 clamp(27px,8.4vw,128px)/.9 var(--ox-display);font-stretch:125%;
   text-transform:uppercase;letter-spacing:-.018em}
 .hero h1 em{font-style:normal;color:var(--ox-purple)}
+/* GAUNTLET with a turkey either side. Sized in em so they scale with the
+   headline, and the row can shrink rather than push the word off screen. */
+.gline{display:flex;align-items:center;justify-content:center;gap:.14em;
+  max-width:100%}
+.mini-turkey{flex:0 0 auto;width:1.12em;height:1.12em;display:block;opacity:1}
+.mini-turkey.flip{transform:scaleX(-1)}
+@media(max-width:560px){.gline{gap:.08em}.mini-turkey{width:.95em;height:.95em}}
 .hero-sub{max-width:620px;font:500 clamp(11px,1.15vw,13px)/1.7 var(--ox-mono);letter-spacing:.05em;
   text-transform:uppercase;color:var(--ox-body)}
 /* The round window. Brighter than the update stamp below it: which contest
@@ -247,12 +254,19 @@ footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:upp
   <!-- Full bleed: the ambient texture, and the surface the leaves cascade over.
        The turkey is its own canvas below so it is not lost behind the title. -->
   <canvas class="hero-art" data-ox-art="field" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".6"
-          data-ox-leaves data-ox-leaf-tone="ember" aria-hidden="true"></canvas>
+          data-ox-lens="0" data-ox-leaves data-ox-leaf-tone="ember" aria-hidden="true"></canvas>
   <canvas class="hero-turkey" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
           data-ox-calm=".45" data-ox-cell="7" aria-hidden="true"></canvas>
   <div class="wrap hero-in">
     <span class="eyebrow">Thanksgiving</span>
-    <h1>Thanksgiving <em>Gauntlet</em></h1>
+    <h1>Thanksgiving
+      <span class="gline">
+        <canvas class="mini-turkey" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
+                data-ox-calm=".45" data-ox-cell="6" data-ox-lens="0" aria-hidden="true"></canvas>
+        <em>Gauntlet</em>
+        <canvas class="mini-turkey flip" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
+                data-ox-calm=".45" data-ox-cell="6" data-ox-lens="0" aria-hidden="true"></canvas>
+      </span></h1>
     <p class="hero-round">November 20 to 27, 2026</p>
     <p class="hero-sub">Updated as of 3:40 PM ET · November 20, 2026</p>
   </div>
