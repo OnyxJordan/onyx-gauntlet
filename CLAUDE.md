@@ -69,6 +69,10 @@ So each row also carries `k`, a salted sha256 of the lowercased handle
 `template.html` — change one and search silently stops working). The page hashes
 what is typed and compares. An exact match wins outright and shows that one row;
 otherwise it falls back to substring matching against masked handles.
+When the typed name has been hashed and matches no row, the count line says
+"No player named ... on this round's board yet" above the could-be list (Jordan
+2026-11-20: a full username that had not played this round looked like search
+returning the wrong people).
 
 Be honest about what that costs: a digest is not a secret. Someone holding a
 list of usernames can hash it and learn which of those names are on the board.

@@ -447,16 +447,23 @@ function render(){
     return (a[sk]-b[sk])*sd;
   });
   var tot=Math.max(1,Math.ceil(fil.length/ps)),st=(pg-1)*ps,sl=fil.slice(st,st+ps);
-  document.getElementById('show').textContent=fil.length
-    ? 'Showing '+(st+1)+'–'+Math.min(st+ps,fil.length)+' of '+fil.length.toLocaleString()+' players'
-    : '0 players';
+  /* The typed name has been hashed and matches nobody, so it is not on this
+     round's board. Say so before the could-be list, or a full username that is
+     simply absent reads as a search that returned the wrong people. */
+  var raw=document.getElementById('q').value.trim();
+  var absent=!!(q&&QK&&!hit.length);
+  document.getElementById('show').textContent=(absent
+    ? 'No player named "'+raw+'" on this round\'s board yet'+(fil.length?' · '+fil.length.toLocaleString()+' handles could match':'')
+    : fil.length
+      ? 'Showing '+(st+1)+'–'+Math.min(st+ps,fil.length)+' of '+fil.length.toLocaleString()+' players'
+      : '0 players');
   ['r','d','u','p'].forEach(function(k){
     var el=document.getElementById('h-'+k),lb={r:'Rank',d:'Move',u:'Player',p:'Prize'};
     el.className=(k==='p'?'prize':'')+(sk===k?' on':'');
     el.textContent=lb[k]+(sk===k?(sd===1?' ↑':' ↓'):'');
   });
   if(!fil.length){
-    document.getElementById('tb').innerHTML='<tr><td colspan="4"><div class="empty"><b>No matches</b><i>No players found for that search</i></div></td></tr>';
+    document.getElementById('tb').innerHTML='<tr><td colspan="4"><div class="empty"><b>No matches</b><i>'+(absent?'Players appear after their first Gauntlet round':'No players found for that search')+'</i></div></td></tr>';
   }else{
     document.getElementById('tb').innerHTML=sl.map(function(r){
       var cls=r.r<=3?'t'+r.r:'';
