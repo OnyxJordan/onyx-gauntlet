@@ -1,10 +1,13 @@
-# Onyx Odds, Mini Games Gauntlet leaderboard.
-# Fetches standings, renders index.html, commits it AND deploys it to Pages.
+# Onyx Odds, Gauntlet leaderboard.
+# Fetches the standings, renders index.html and commits it. That is the whole
+# publish: the commit IS the deploy.
 #
-# The deploy lives here rather than in pages.yml on purpose. A push made with
-# GITHUB_TOKEN does not trigger `on: push` workflows, which is GitHub's loop
-# prevention, so a commit from this job would never wake pages.yml and the site
-# would sit stale behind the repo. Doing both in one job removes the chaining.
+# This workflow does not deploy to Pages and must not start again. Pages on
+# this repository is served from the main branch, so GitHub's own "pages build
+# and deployment" runs on every push, including the ones this job makes with
+# GITHUB_TOKEN. Adding actions/deploy-pages here put a second deployer against
+# that one and the loser died on "No artifacts named github-pages", which is
+# what reddened three runs on 2026-11-20. One deployer, and it is GitHub's.
 #
 # This job no longer runs the slow standings query itself. Retool does that on
 # its own hourly schedule and parks the answer; this reads the parked copy in
@@ -12,14 +15,10 @@
 name: publish
 
 on:
-  # A push to main: rebuild from the parked snapshot and deploy it. This used
-  # to be pages.yml's job, but two workflows both deploying Pages raced every
-  # time a human pushed, and the loser died on "No artifacts named
-  # github-pages". One workflow owns the deploy now.
-  #
-  # A commit made by this workflow cannot retrigger it: pushes authenticated
-  # with GITHUB_TOKEN do not fire `on: push`, which is GitHub's loop
-  # prevention and exactly what is wanted here.
+  # A push to main: rebuild the page against the parked snapshot so a code or
+  # round.json change is reflected straight away rather than at the next
+  # refresh. A commit this workflow makes cannot retrigger it, because pushes
+  # authenticated with GITHUB_TOKEN do not fire `on: push`.
   push:
     branches: [main]
 
@@ -67,15 +66,10 @@ concurrency:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -110,6 +104,17 @@ jobs:
       # while we were working, build again on top of it, and push that. The
       # rebuild is cheap: it reads the parked snapshot over the webhook in
       # about 200ms and never touches the production database.
+      - name: Refuse to publish a broken page
+        run: |
+          # This runs before the commit, not after, because committing IS
+          # publishing: GitHub's own branch builder deploys every push to main.
+          # A broken page that reaches the commit is already live.
+          test -s index.html || { echo "::error::index.html is missing or empty"; exit 1; }
+          if grep -q "__DATA__\|__UPDATED__\|__ROUND__\|__POOL__\|__PLACES__" index.html; then
+            echo "::error::index.html still contains template placeholders"
+            exit 1
+          fi
+
       - name: Commit if the standings changed
         env:
           FINAL: ${{ inputs.final }}
@@ -161,28 +166,3 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      # Deploy steps below are skipped on a dry run, so a dry run can never
-      # change what the public sees.
-      - name: Turn Pages on if it is not already
-        if: ${{ inputs.dry_run != true }}
-        uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Refuse to deploy a broken page
-        if: ${{ inputs.dry_run != true }}
-        run: |
-          test -s index.html || { echo "::error::index.html is missing or empty"; exit 1; }
-          if grep -q "__DATA__\|__UPDATED__" index.html; then
-            echo "::error::index.html still contains template placeholders"
-            exit 1
-          fi
-
-      - uses: actions/upload-pages-artifact@v3
-        if: ${{ inputs.dry_run != true }}
-        with:
-          path: .
-
-      - id: deployment
-        if: ${{ inputs.dry_run != true }}
-        uses: actions/deploy-pages@v4

@@ -182,6 +182,24 @@ the extras must survive any resync:
     canvas. With the lens left on, the leaves looked like debris on water rather
     than a cascade. The lens stays on everywhere else.
 
+## 6d. How the page actually gets deployed
+
+**Pages serves this repo from the `main` branch.** GitHub's own "pages build
+and deployment" workflow (event `dynamic`, not a file in this repo) runs on
+every push, including the ones the publish job makes with `GITHUB_TOKEN`. So
+committing `index.html` is the whole publish; there is no deploy step and
+there must not be one.
+
+Adding `actions/deploy-pages` puts a second deployer against GitHub's, and the
+loser fails with `No artifacts named "github-pages" were found for this
+workflow run`. That reddened three runs on 2026-11-20, and two more earlier in
+the week that were wrongly written off as flakes. `pages.yml` was deleted the
+same day for the same reason.
+
+If the page ever needs to be built rather than served as-is, switch Pages to
+the Actions source in Settings **and** add the deploy steps back in the same
+change, never one without the other.
+
 ## 7. Gotchas
 
 - **The affiliate toggle on the dashboard defaults to All.** A hand export made
