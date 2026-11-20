@@ -12,6 +12,17 @@
 name: publish
 
 on:
+  # A push to main: rebuild from the parked snapshot and deploy it. This used
+  # to be pages.yml's job, but two workflows both deploying Pages raced every
+  # time a human pushed, and the loser died on "No artifacts named
+  # github-pages". One workflow owns the deploy now.
+  #
+  # A commit made by this workflow cannot retrigger it: pushes authenticated
+  # with GITHUB_TOKEN do not fire `on: push`, which is GitHub's loop
+  # prevention and exactly what is wanted here.
+  push:
+    branches: [main]
+
   # Four times an hour, on deliberately unpopular minutes.
   #
   # GitHub's scheduler is badly unreliable on this repo and asking more often

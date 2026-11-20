@@ -212,7 +212,7 @@ two-workflow split could collapse back into one.
 | `round.json` | The only file that changes between rounds. |
 | `previous.json` | Last run's ranks, keyed by a truncated sha256 of the username so no real usernames are stored. Drives the Move column. Delete it to reset every arrow to New. |
 | (no file) | `retool_db.gauntlet_standings` is the single-row table the Retool refresh writes to and the webhook reads from. Created 2026-11-13. |
-| `.github/workflows/publish.yml` | Scheduled and manual publishing. Schedule off by default. |
+| `.github/workflows/publish.yml` | The only workflow. Builds, commits and deploys to Pages, on push, on a schedule and on demand. |
 
 ## 7. Copy rules for anything written around this
 

@@ -87,7 +87,7 @@ degrades to masked handles only.
 | `build.py` | Fetch, rank, mask, render. Standard library only |
 | `standings.sql` | The ranking rule. One source of truth |
 | `round.json` | The only file that changes between rounds |
-| `.github/workflows/publish.yml` | Scheduled and manual publishing. Schedule off |
+| `.github/workflows/publish.yml` | The only workflow: build, commit, deploy to Pages |
 | `SETUP.md` | How to finish wiring the automation, step by step |
 | `README.md` | Operating guide |
 
