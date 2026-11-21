@@ -122,6 +122,10 @@ def standings_sql(cfg, flavor="psycopg", sql_path=SQL):
 # standings sources
 # --------------------------------------------------------------------------
 
+class Skip(Exception):
+    """This source cannot be used; try the next one."""
+
+
 def capture_as_of(cfg, payload):
     """The standings are produced on Retool's own schedule and parked in
     retool_db, so by the time we read them they are already minutes or hours
@@ -181,6 +185,72 @@ def usernames(rows):
                 out.append(val.strip())
                 break
     return out
+
+
+def from_retool_db(cfg):
+    """Read the parked standings straight out of retool_db over Postgres.
+
+    The webhook does the same job, but every call to it is a Retool *workflow
+    run*, and those are a metered allowance shared with every other workflow in
+    the org. Reading the row directly is an ordinary database query and costs
+    none of them. On 2026-11-21 the org hit 100% of 5,000 runs mid-round and
+    the board stopped refreshing; this is what stops that recurring.
+
+    Needs RETOOL_DB_URL, the connection string from Retool's Database tab.
+    Raises Skip if it cannot be used, so the caller falls back to the webhook
+    rather than failing the publish."""
+    url = os.environ.get("RETOOL_DB_URL", "").strip()
+    if not url:
+        raise Skip("RETOOL_DB_URL is not set")
+    try:
+        import psycopg2
+        import psycopg2.extras
+    except ImportError:
+        raise Skip("psycopg2 is not installed")
+
+    # Retool Database requires TLS and will not negotiate without this.
+    if "sslmode=" not in url:
+        url += ("&" if "?" in url else "?") + "sslmode=require"
+    try:
+        conn = psycopg2.connect(url, connect_timeout=20)
+    except Exception as exc:                       # noqa: BLE001 - any failure falls back
+        raise Skip(f"could not connect: {str(exc).strip()[:160]}")
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute("SET statement_timeout = '30s'")
+            cur.execute("SELECT payload, refreshed_at, round_start, round_end, row_count "
+                        "FROM gauntlet_standings WHERE id = 1")
+            row = cur.fetchone()
+    except Exception as exc:                       # noqa: BLE001
+        raise Skip(f"query failed: {str(exc).strip()[:160]}")
+    finally:
+        conn.close()
+
+    if not row:
+        raise Skip("gauntlet_standings has no row 1 yet")
+    payload, refreshed_at, round_start, round_end, _count = row
+
+    # Only this path can see the window the standings were actually computed
+    # over, because the webhook does not return it. Checking it here catches
+    # the mismatch that otherwise ships last round's numbers under this
+    # round's dates and prize ladder.
+    want = (cfg.get("start_date"), cfg.get("end_date"))
+    got = (str(round_start), str(round_end))
+    if all(got) and got != want:
+        raise SystemExit(
+            f"the parked standings cover {got[0]} to {got[1]}, but round.json says "
+            f"{want[0]} to {want[1]}.\nThe dates live in two places: round.json here "
+            f"and the standings block of the gauntlet-refresh workflow in Retool. "
+            f"Change them together, then let the refresh run once.")
+
+    cfg["_data_as_of"] = snapshot_id(refreshed_at.isoformat()
+                                     if hasattr(refreshed_at, "isoformat") else refreshed_at)
+    rows = payload if isinstance(payload, list) else unwrap(payload)
+    if not rows:
+        raise Skip("the parked payload is empty")
+    print(f"read {len(rows)} rows straight from retool_db, no workflow run spent",
+          file=sys.stderr)
+    return usernames(rows)
 
 
 def from_retool(cfg, timeout=600):
@@ -557,7 +627,8 @@ def parse_when(text):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Build the Gauntlet leaderboard page.")
-    ap.add_argument("--source", choices=("retool", "json"), default="retool")
+    ap.add_argument("--source", choices=("auto", "db", "retool", "json"), default="auto",
+                    help="auto: the database if RETOOL_DB_URL is set, else the webhook")
     ap.add_argument("--json-file", type=Path, help="standings JSON, with --source json")
     ap.add_argument("--at", help="timestamp for the hero line, Eastern. Default: now.")
     ap.add_argument("--final", action="store_true",
@@ -590,8 +661,22 @@ def main(argv=None):
         payload = json.loads(args.json_file.read_text())
         capture_as_of(cfg, payload)
         names = usernames(unwrap(payload))
-    else:
+    elif args.source == "retool":
         names = from_retool(cfg)
+    else:
+        # Prefer the database: it costs no Retool workflow run and it is the
+        # only source that can check the round window. Anything that stops it
+        # working falls through to the webhook rather than failing the
+        # publish, because a page that updates and costs a run beats a page
+        # that does not update. --source db refuses to fall back, for testing.
+        try:
+            names = from_retool_db(cfg)
+        except Skip as why:
+            if args.source == "db":
+                raise SystemExit(f"--source db: {why}")
+            print(f"database read skipped ({why}); falling back to the webhook",
+                  file=sys.stderr)
+            names = from_retool(cfg)
 
     print(f"{len(names)} rows from {args.source}", file=sys.stderr)
     names, dropped = drop_excluded(names, cfg)

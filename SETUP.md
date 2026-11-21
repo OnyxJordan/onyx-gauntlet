@@ -252,6 +252,58 @@ If not, the status says which thing is wrong:
 | 404 | Token cannot see the repository, so repository access was not set |
 | 422 | Wrong `ref`. It must be `main` |
 
+---
+
+## Stage 6. Read the standings from the database, not the webhook
+
+**Why.** Every publish used to call the `gauntlet-standings` webhook, and each
+call is a Retool **workflow run**. Those are metered: 5,000 a month for the
+whole org, shared with the CRM workflows. The Gauntlet was spending roughly
+4,300 of them a month on its own, the org hit 100% on 2026-11-21, and the
+board stopped refreshing in the middle of a round.
+
+`gauntlet-refresh` already parks the standings in `retool_db`, and Retool
+Database is an ordinary Postgres you can connect to. Reading the parked row
+directly is a database query, not a workflow run, so it costs nothing from the
+allowance. `gauntlet-refresh` becomes the only thing that spends runs: about
+24 a day instead of 50.
+
+It also gains a safety check the webhook cannot do. The parked row records the
+window the standings were computed over, so the build compares it against
+`round.json` and refuses to publish if they disagree. That is the mistake that
+otherwise ships last round's numbers under this round's dates and prizes.
+
+### 6a. Get the connection string
+
+Retool → **Database** (top nav) → **Connect** (top right). It shows a
+connection string beginning `postgresql://`. Copy the whole thing.
+
+### 6b. Put it in the repo
+
+GitHub → the repo → **Settings** → **Secrets and variables** → **Actions** →
+**New repository secret**
+
+- Name: `RETOOL_DB_URL`
+- Secret: the connection string
+
+Leave `RETOOL_WEBHOOK_URL` in place. It is the fallback, and the build uses it
+automatically if the database is unreachable, so a networking problem makes a
+publish cost one run rather than fail.
+
+### 6c. Check it
+
+Actions → **publish** → Run workflow. The log should say:
+
+```
+reading from retool_db (costs no Retool workflow run)
+read 943 rows straight from retool_db, no workflow run spent
+```
+
+If it instead says `database read skipped (...)` followed by the reason, the
+reason is the thing to fix. The commonest one is Retool Database refusing
+connections from outside; it does not restrict by IP by default, but if it has
+been locked down, the webhook keeps working in the meantime.
+
 ### Things that cost time, so they are written down
 
 - A **Resource query** block runs SQL; a **Code** block runs JavaScript. Pasting

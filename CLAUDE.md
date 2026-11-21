@@ -213,20 +213,24 @@ and two of them are easy to forget:
 | What | Runs |
 |---|---|
 | `gauntlet-refresh`, hourly | 24/day |
-| `gauntlet-standings`, once per publish that Retool dispatched | 24/day |
-| `gauntlet-standings`, once per publish the GitHub cron started | the cron's frequency |
+| `gauntlet-standings`, the webhook | only when the database read fails |
 
-**Every publish costs a Retool run**, because `build.py` reads the standings
-through the webhook. That is why the backstop cron is four a day and must not
-go back to `*/15`: at that rate the Gauntlet alone was about 4,300 runs a
-month, the org hit 100% on 2026-11-21, and the board stopped refreshing
-mid-round.
+**A publish used to cost a Retool run**, because `build.py` read the standings
+through the webhook. At `*/15` that was about 4,300 runs a month for the
+Gauntlet alone; the org hit 100% on 2026-11-21 and the board stopped
+refreshing mid-round.
 
-If runs ever need to come down further, the webhook read is the one to remove:
-`gauntlet-refresh` already parks the standings in `retool_db`, and Retool
-Database is reachable with an ordinary Postgres connection string, so
-`build.py` could read the parked row directly and halve the usage. That trades
-the stdlib-only rule for a driver and a credential, so it has not been done.
+Two things fixed it, and both must stay. The backstop cron is four a day and
+must not go back to `*/15`. And `build.py` now reads the parked row straight
+out of `retool_db` over Postgres (`RETOOL_DB_URL`, SETUP stage 6), which is a
+database query rather than a workflow run. The webhook is still there and the
+build falls back to it by itself, so a database problem costs a run instead of
+a publish.
+
+The database path is also the only one that can see the window the standings
+were computed over, and it refuses to publish when that disagrees with
+`round.json`. Keep that check: it is the guard against last round's numbers
+appearing under this round's dates and prize ladder.
 
 ## 7. Gotchas
 

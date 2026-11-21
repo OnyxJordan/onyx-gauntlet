@@ -68,21 +68,31 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Check the webhook secret is set
+      - name: Check a standings source is configured
         env:
           HOOK: ${{ secrets.RETOOL_WEBHOOK_URL }}
+          DBURL: ${{ secrets.RETOOL_DB_URL }}
         run: |
-          if [ -z "$HOOK" ]; then
-            echo "::error::RETOOL_WEBHOOK_URL is not set. See SETUP.md stage 3."
+          if [ -z "$DBURL" ] && [ -z "$HOOK" ]; then
+            echo "::error::Neither RETOOL_DB_URL nor RETOOL_WEBHOOK_URL is set. See SETUP.md stage 6."
             exit 1
           fi
+          [ -n "$DBURL" ] && echo "reading from retool_db (costs no Retool workflow run)"
+          [ -n "$HOOK" ]  && echo "webhook available as a fallback"
+          true
+
+      # Only needed for the database path. Small and quick, and the build falls
+      # back to the webhook by itself if it is somehow missing.
+      - name: Install the Postgres driver
+        run: pip install --quiet psycopg2-binary
 
       - name: Build the page
         env:
+          RETOOL_DB_URL: ${{ secrets.RETOOL_DB_URL }}
           RETOOL_WEBHOOK_URL: ${{ secrets.RETOOL_WEBHOOK_URL }}
           RETOOL_WORKFLOW_KEY: ${{ secrets.RETOOL_WORKFLOW_KEY }}
         run: |
-          args="--source retool"
+          args="--source auto"
           [ "${{ inputs.final }}" = "true" ] && args="$args --final"
           python3 build.py $args
 
@@ -111,12 +121,15 @@ jobs:
         env:
           FINAL: ${{ inputs.final }}
           DRY: ${{ inputs.dry_run }}
+          RETOOL_DB_URL: ${{ secrets.RETOOL_DB_URL }}
+          RETOOL_WEBHOOK_URL: ${{ secrets.RETOOL_WEBHOOK_URL }}
+          RETOOL_WORKFLOW_KEY: ${{ secrets.RETOOL_WORKFLOW_KEY }}
         run: |
           git config user.name "onyx-gauntlet-bot"
           git config user.email "actions@users.noreply.github.com"
 
           build() {
-            args="--source retool"
+            args="--source auto"
             [ "$FINAL" = "true" ] && args="$args --final"
             python3 build.py $args
           }
