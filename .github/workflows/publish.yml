@@ -81,9 +81,12 @@ jobs:
           [ -n "$HOOK" ]  && echo "webhook available as a fallback"
           true
 
-      # Only needed for the database path. Small and quick, and the build falls
-      # back to the webhook by itself if it is somehow missing.
+      # Only for the database path, which needs RETOOL_DB_URL. Retool Database
+      # does not offer an external connection string on every plan, and it does
+      # not on this account, so this usually skips and the build reads the
+      # standings through the webhook instead.
       - name: Install the Postgres driver
+        if: ${{ secrets.RETOOL_DB_URL != '' }}
         run: pip install --quiet psycopg2-binary
 
       - name: Build the page

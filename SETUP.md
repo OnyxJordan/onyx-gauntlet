@@ -275,8 +275,13 @@ otherwise ships last round's numbers under this round's dates and prizes.
 
 ### 6a. Get the connection string
 
-Retool → **Database** (top nav) → **Connect** (top right). It shows a
-connection string beginning `postgresql://`. Copy the whole thing.
+Retool → **Database** (top nav) → **Connect** (top right).
+
+**Checked 2026-11-21: this account has no Connect button**, so Retool
+Database is not reachable from outside and this stage cannot be completed.
+The build falls back to the webhook by itself, which is why nothing is
+broken by that. Everything below is written down for the day the plan does
+offer it, or for a future Retool Database.
 
 ### 6b. Put it in the repo
 
