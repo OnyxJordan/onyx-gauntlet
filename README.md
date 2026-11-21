@@ -126,7 +126,7 @@ Retool "gauntlet-refresh"   hourly, no time limit
   standings  analytics-reader, the slow query (2 to 3 minutes)
   query1     writes the result into retool_db.gauntlet_standings
 
-GitHub "publish"            :04 :19 :34 :49, when GitHub feels like it
+GitHub "publish"            on a Retool dispatch, plus a 4x daily backstop
   calls Retool "gauntlet-standings" webhook
   that webhook only reads the parked copy out of retool_db  (~200ms)
   build.py renders index.html, commits, deploys to Pages
