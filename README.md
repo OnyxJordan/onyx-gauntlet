@@ -182,24 +182,46 @@ does not have. If the snapshot is ever more than 12 hours old, `build.py`
 aborts rather than publishing, so a Retool schedule that silently stopped
 leaves a visibly stale page instead of a fresh-looking wrong one.
 
-### The index, still worth having
+### The index, and why the query has a wart in it
 
-`"ThirdPartyBet"` is 37 million rows across 38 GB with no index leading with
-`createdAt`, so the query reads the whole table. That is why it takes minutes.
+`"ThirdPartyBet"` is 46 million rows across 50 GB with no index leading with
+`createdAt`. That has been true since the start and was only ever a cost. On
+2026-11-21 it became an outage.
+
+The table's statistics are refreshed by autoanalyse, not on a schedule, and it
+takes about two million writes a day. A round that starts after the last
+analyse therefore sits **past the end of the planner's histogram**, and
+Postgres estimates almost nothing for it. On the day it broke it estimated
+**1 row** for a window holding **399,555**, picked
+`ThirdPartyBet_userId_createdAt_idx` and nested loops on the strength of that
+estimate, and ran past the 600 second block timeout. The refresh had been
+failing every hour since 04:03 and the board froze at 3:15am.
+
+`standings.sql` now adds `+ interval '0 second'` to both sides of the date
+filter. It changes no value; it makes the predicate non-sargable so that index
+cannot be used, the planner falls back to a default selectivity, and it picks
+a parallel scan again:
+
+```
+before   Nested Loop,  rows=1       (actual 399,555)   killed at 600s
+after    Gather Merge, rows=30,115, 2 workers          the plan that ran all last round
+```
+
+That is a workaround for a missing index, and it is commented as such in the
+query. The actual fix is still:
 
 ```sql
 CREATE INDEX CONCURRENTLY "ThirdPartyBet_createdAt_idx"
   ON "ThirdPartyBet" ("createdAt");
 ```
 
-It cannot be run from Retool: Postgres requires table ownership and
-`"ThirdPartyBet"` is owned by `svc_migrator`, while `analytics-reader` connects
-as `postgres-readonly` and `appDatabaseWrite` as `retool_user`. It needs an
-infra credential.
-
-Nothing is blocked on it any more. It would just mean each hourly refresh costs
-a second instead of three minutes of reading the production primary, and the
-two-workflow split could collapse back into one.
+`CONCURRENTLY` means no write downtime. It cannot be run from Retool: Postgres
+requires table ownership, `"ThirdPartyBet"` is owned by `svc_migrator`, and
+`analytics-reader` connects as `postgres-readonly` while `appDatabaseWrite` is
+`retool_user`. It needs whoever holds an infra credential. With it the query
+reads a week of rows instead of scanning fifty gigabytes, the refresh costs a
+second rather than minutes, and the `interval '0 second'` wart should be
+deleted the same day.
 
 ## 6. Files
 
