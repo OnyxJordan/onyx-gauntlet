@@ -85,9 +85,20 @@ jobs:
       # does not offer an external connection string on every plan, and it does
       # not on this account, so this usually skips and the build reads the
       # standings through the webhook instead.
-      - name: Install the Postgres driver
-        if: ${{ secrets.RETOOL_DB_URL != '' }}
-        run: pip install --quiet psycopg2-binary
+      # The check is in the shell on purpose. `secrets` is not one of the
+      # contexts GitHub allows in a step-level `if`, and using it there does
+      # not warn: it makes the whole file invalid, so no job runs at all and
+      # the workflow silently stops publishing. That happened on 2026-11-21
+      # and froze the board for nine hours.
+      - name: Install the Postgres driver, if there is a database to reach
+        env:
+          DBURL: ${{ secrets.RETOOL_DB_URL }}
+        run: |
+          if [ -n "$DBURL" ]; then
+            pip install --quiet psycopg2-binary
+          else
+            echo "no RETOOL_DB_URL; the build will read the standings over the webhook"
+          fi
 
       - name: Build the page
         env:
