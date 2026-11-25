@@ -10,18 +10,29 @@ fantasy best-ball product) beyond having briefly lived inside it; that copy was
 deleted in Onyx-BB#3 precisely so there is one source of truth. Do not put
 leaderboard code back there.
 
-## State verified 2026-11-12
+## State verified 2026-11-25
 
-- **The page is this repo's `index.html`.** GitHub Pages serves it. Publishing
-  is a commit; there is no upload step and no hosting API key.
-- **Previously on tiiny.host** at `onyxgamesgauntlet.tiiny.site`. That URL
-  started returning 404 and the tiiny management UI errored, which is why it
-  moved. `index.html` here is the September 15 2026 page, recovered from the
-  live site before it went down, relabelled as final.
-- **Nothing is automated yet.** The workflow exists, its schedule is commented
-  out, and the Retool webhook it needs has not been built. See `SETUP.md`.
-- **The round in `round.json` is 2026-11-12 to 2026-11-18.** Confirm with
-  Jordan before trusting it; a stale window publishes a plausible, wrong page.
+The site is now **three pages**, not one, and `build.py` builds all of them in
+one run.
+
+| URL | What | Source row |
+|---|---|---|
+| `/` | homepage, one card per board | n/a, built from the boards |
+| `/gauntlet/` | Thanksgiving Gauntlet, Nov 20 to 27, 20,000 across 50 | `gauntlet_standings` id 1 |
+| `/rumble/` | Rips Rumble, Nov 26 to 27, 10,000 across 20 | `gauntlet_standings` id 2 |
+
+- **The Gauntlet moved from `/` to `/gauntlet/`.** Jordan agreed to the link
+  change on 2026-11-25. The root is the homepage now.
+- **The Rumble needs three edits in Retool before it can publish**, written out
+  in [`retool/rips-rumble.md`](./retool/rips-rumble.md). Until they are done it
+  publishes a pre-round page ("Standings open soon") and the Gauntlet is
+  unaffected.
+- **The Thanksgiving theme is temporary.** Jordan, 2026-11-20: "keep this code
+  don't lose it as we will go back after this week". The purple build is tagged
+  `round-2026-11-12_purple`. The theme now lives in one place, `site.css`.
+- Still open from before: `"ThirdPartyBet"` has no `createdAt` index, and
+  Retool Database offers no external connection string on this account, so the
+  standings come over the webhook rather than straight from the database.
 
 ## 1. The product in one paragraph
 
@@ -48,7 +59,7 @@ Consequences:
 - `template.html` was **derived from real dashboard output**, not hand written,
   so rendered pages match the export structurally. Keep it that way.
 - `mask()` in `build.py` mirrors `maskUsername()` in the dashboard's
-  `frontend/utils/format.ts`. `round.json`'s ladder mirrors `PRIZE_TABLE` in the
+  `frontend/utils/format.ts`. The board file's ladder mirrors `PRIZE_TABLE` in the
   same file. Both pairs must change together or the two paths disagree.
 
 ## 3. Privacy rule, load bearing
@@ -86,18 +97,28 @@ degrades to masked handles only.
 
 | Path | What it is |
 |---|---|
-| `index.html` | The published page. The deliverable. |
-| `template.html` | Same page with `__DATA__` and `__UPDATED__` placeholders |
-| `build.py` | Fetch, rank, mask, render. Standard library only |
-| `standings.sql` | The ranking rule. One source of truth |
-| `round.json` | The only file that changes between rounds |
-| `.github/workflows/publish.yml` | The only workflow: build, commit, deploy to Pages |
-| `SETUP.md` | How to finish wiring the automation, step by step |
+| `index.html` | The published homepage. Generated. |
+| `<slug>/index.html` | A published board page. Generated. |
+| `home.html` | Homepage template |
+| `template.html` | Board-page template, with `__DATA__`, `__TITLE__`, `__NAV__` and the rest |
+| `site.css` | Everything the three pages share: tokens, header, tabs, hero, footer. **The theme lives here** |
+| `onyx.js` | The raster art engine: turkeys, leaves, the cascade that follows the pointer |
+| `build.py` | Fetch, rank, mask, render every board plus the homepage. Standard library only |
+| `boards/<slug>.json` | One board: dates, ladder, copy, which snapshot row to read. **Adding a board is adding a file** |
+| `sql/<slug>.sql` | That board's ranking rule. One source of truth, shared with Retool via `--print-sql` |
+| `state/<slug>.json` | That board's previous ranks, as digests, for the Move column |
+| `.github/workflows/publish.yml` | The only workflow: build every board, commit, and GitHub's own builder deploys |
+| `retool/rips-rumble.md` | The Retool edits the Rumble needs |
+| `SETUP.md` | How the automation is wired, step by step |
 | `README.md` | Operating guide |
+
+To add a board: write `boards/<slug>.json` and `sql/<slug>.sql`, add the slug to
+`DEFAULT_BOARDS` in `build.py`, and park its standings in a new row of
+`gauntlet_standings`. Nothing else changes, and it costs no extra Retool runs.
 
 ## 5. The ranking rule
 
-`standings.sql`, copied from the dashboard's
+`sql/gauntlet.sql`, copied from the dashboard's
 `/backend/minigames/leaderboard.ts` so the two cannot drift:
 
 - Rank order is **handle descending**, rounds descending as the tiebreak. The
@@ -107,7 +128,7 @@ degrades to masked handles only.
 - **Affiliates are included.** Jordan excluded them on 2026-09-23 and reversed
   it on 2026-11-14: some affiliates promote the leaderboard, so removing the
   whole group was wrong. `exclude_affiliates` stays false. Individuals are
-  removed one at a time via `excluded` in `round.json`, which holds digests
+  removed one at a time via `excluded` in the board file, which holds digests
   rather than usernames because the repo is public; generate one with
   `build.py --exclude-key`. An exclusion moves everyone below it up a place,
   so it changes who is paid.
@@ -150,7 +171,7 @@ literals and left purple podium rows under an orange theme.
 | Nov 20 to 27, Thanksgiving | `--ox-purple:#ff8a3d` harvest orange, `--ox-lilac:#ffc46b` amber, warmed greys | current |
 
 Restore an earlier look with
-`git checkout <tag> -- template.html onyx.js`, which leaves `round.json` and the
+`git checkout <tag> -- site.css template.html onyx.js`, which leaves the board files and the
 standings alone.
 
 Up/down/flat colours keep the meaning they have on `picks.html`, whatever the
@@ -229,7 +250,7 @@ a publish.
 
 The database path is also the only one that can see the window the standings
 were computed over, and it refuses to publish when that disagrees with
-`round.json`. Keep that check: it is the guard against last round's numbers
+the board file. Keep that check: it is the guard against last round's numbers
 appearing under this round's dates and prize ladder.
 
 ## 7. Gotchas
@@ -238,8 +259,8 @@ appearing under this round's dates and prize ladder.
   without switching it to Exclude publishes standings that pay the wrong people.
   The automated path is unaffected.
 - **Do not use the dashboard's "Last 7 days" preset for a round.** It is
-  backward looking and slides daily. Use Custom, matching `round.json`.
-- **`pool` in `round.json` is a checksum.** If the ladder does not sum to it the
+  backward looking and slides daily. Use Custom, matching the board file.
+- **`pool` in a board file is a checksum.** If the ladder does not sum to it the
   build aborts. That is intended; it catches the typo that pays the wrong total.
 - **A finished round must be marked final.** `"final": true` switches the hero
   line to "Final Standings as of". The previous page sat frozen for two months

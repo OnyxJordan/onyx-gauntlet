@@ -1,13 +1,25 @@
-# Mini Games Gauntlet leaderboard
+# Onyx leaderboards
 
-The public Gauntlet standings page, hosted on GitHub Pages.
+The public standings pages, hosted on GitHub Pages. Three pages, built from one
+script:
 
-Publishing is a git commit. Whatever `index.html` holds is what the world sees,
-so there is no hosting API key, no upload step and no third party account in the
-path. Every version of the page is in git history.
+| URL | Board | Window | Prizes |
+|---|---|---|---|
+| `/` | homepage | | |
+| `/gauntlet/` | Mini Games Gauntlet | Nov 20 to 27 | 20,000 across 50 |
+| `/rumble/` | Rips Rumble | Nov 26 to 27 | 10,000 across 20 |
+
+Publishing is a git commit. Whatever is committed is what the world sees, so
+there is no hosting API key, no upload step and no third party account in the
+path. Every version of every page is in git history.
 
 **Live at:** `https://onyxjordan.github.io/onyx-gauntlet/`
 (enable under Settings → Pages → Source `main`, folder `/ (root)`)
+
+A board is a file. `boards/<slug>.json` holds its dates, prize ladder, copy and
+which parked snapshot it reads; `sql/<slug>.sql` holds its ranking rule. One run
+of `build.py` publishes them all and costs **one** Retool workflow run no matter
+how many boards there are.
 
 **Setting this up, or finishing the automation? Start with [`SETUP.md`](./SETUP.md).**
 It says where each step happens, since they land across four different places.
@@ -16,9 +28,17 @@ It says where each step happens, since they land across four different places.
 
 ## 1. Where the numbers come from
 
-The ranking rule lives in `standings.sql`, copied from the Minigames Live
-Dashboard's `/backend/minigames/leaderboard.ts`. The public page and the
-internal dashboard rank players by the same rule and cannot drift apart.
+Each board's ranking rule lives in its own `sql/<slug>.sql`.
+
+`sql/gauntlet.sql` is copied from the Minigames Live Dashboard's
+`/backend/minigames/leaderboard.ts`, so the public page and the internal
+dashboard rank players by the same rule and cannot drift apart. The rest of
+this section describes it.
+
+`sql/rumble.sql` is the Rips board and ranks by **total spent opening packs**,
+which is the sum of `DEBIT` rows in `"RipsWalletTransaction"`. Unlike the
+Gauntlet it counts every purchase rather than sweeps only, and its tiebreak is
+packs opened. Internal users are excluded the same way; affiliates are in.
 
 - Rank order is **handle descending**, rounds descending as the tiebreak.
 - **SWEEP balances only.** Promotional and non-sweeps play does not count.
@@ -26,7 +46,7 @@ internal dashboard rank players by the same rule and cannot drift apart.
   email.
 - **Affiliates are included.** They were excluded as a group until 2026-11-14;
   some of them promote the leaderboard, so the group filter was wrong. Named
-  individuals are taken out one at a time through `excluded` in `round.json`.
+  individuals are taken out one at a time through `excluded` in the board file.
 - Dates are inclusive and Eastern.
 
 The page follows the Onyx design system from the Onyx Sports Data site: black
@@ -51,7 +71,7 @@ The dashboard already builds this exact page. Use it:
 1. Open the **Minigames Live Dashboard** → **Leaderboard** tab.
 2. Set **Affiliates** to **Exclude**. It defaults to All, and forgetting is the
    easiest way to publish a wrong leaderboard.
-3. Set the range to **Custom**, matching `round.json`. Do not use the
+3. Set the range to **Custom**, matching the board file. Do not use the
    "Last 7 days" preset: it is backward looking and will drift as the round runs.
 4. Click **Export HTML**.
 5. Replace `index.html` in this repo with that file and commit. Dragging it onto
@@ -64,7 +84,7 @@ handle, paid and net, and is the current view rather than full rank order.
 
 ## 3. What changes per round
 
-Everything round-specific is in `round.json`, and nothing else needs editing.
+Everything round-specific is in `boards/<slug>.json`, and nothing else needs editing.
 
 ```json
 {
@@ -87,7 +107,7 @@ Everything round-specific is in `round.json`, and nothing else needs editing.
 - The dates must match the Custom range on the dashboard. A wrong window
   produces a leaderboard that looks completely plausible and is wrong.
 
-**The prize ladder exists in two places.** `round.json` here, and `PRIZE_TABLE`
+**The prize ladder exists in two places.** the board file here, and `PRIZE_TABLE`
 in the dashboard's `frontend/utils/format.ts`. They currently agree. Change both
 together or the two exports will disagree.
 
@@ -98,7 +118,7 @@ That needs a Retool workflow exposing the query over a webhook:
 
 1. Retool → **Workflows** → new workflow, trigger type **Webhook**.
 2. Add a SQL query block named `standings` on the **analytics-reader** resource.
-   Do not retype the query, generate it so it cannot drift from `standings.sql`:
+   Do not retype the query, generate it so it cannot drift from `sql/<slug>.sql`:
    ```bash
    python3 build.py --print-sql retool
    ```
@@ -197,7 +217,7 @@ Postgres estimates almost nothing for it. On the day it broke it estimated
 estimate, and ran past the 600 second block timeout. The refresh had been
 failing every hour since 04:03 and the board froze at 3:15am.
 
-`standings.sql` now adds `+ interval '0 second'` to both sides of the date
+`sql/gauntlet.sql` now adds `+ interval '0 second'` to both sides of the date
 filter. It changes no value; it makes the predicate non-sargable so that index
 cannot be used, the planner falls back to a default selectivity, and it picks
 a parallel scan again:
@@ -227,14 +247,19 @@ deleted the same day.
 
 | File | Purpose |
 |---|---|
-| `index.html` | The published page. This is the deliverable. |
-| `template.html` | Same page with `__DATA__` and `__UPDATED__` placeholders. Derived from real dashboard output, so rendered pages match it structurally. |
-| `build.py` | Fetch, rank, mask, render. Standard library only. |
-| `standings.sql` | The ranking rule. One source of truth, shared with the Retool workflow via `--print-sql`. |
-| `round.json` | The only file that changes between rounds. |
-| `previous.json` | Last run's ranks, keyed by a truncated sha256 of the username so no real usernames are stored. Drives the Move column. Delete it to reset every arrow to New. |
-| (no file) | `retool_db.gauntlet_standings` is the single-row table the Retool refresh writes to and the webhook reads from. Created 2026-11-13. |
-| `.github/workflows/publish.yml` | The only workflow. Builds, commits and deploys to Pages, on push, on a schedule and on demand. |
+| `index.html` | The published homepage. Generated; do not hand edit. |
+| `<slug>/index.html` | A published board page. Generated; do not hand edit. |
+| `home.html` | Homepage template. |
+| `template.html` | Board-page template. Derived from real dashboard output, so rendered pages match it structurally. |
+| `site.css` | What all three pages share: tokens, header, page tabs, hero, stat strip, footer. Change the theme here, once. |
+| `onyx.js` | The raster art engine. |
+| `build.py` | Fetch, rank, mask, render every board plus the homepage. Standard library only. |
+| `boards/<slug>.json` | One board: dates, prize ladder, copy, snapshot row. The only file that changes between rounds. |
+| `sql/<slug>.sql` | That board's ranking rule, shared with Retool via `--print-sql`. |
+| `state/<slug>.json` | That board's last ranks, keyed by a truncated sha256 of the username so no real usernames are stored. Drives the Move column. Delete it to reset every arrow to New. |
+| (no file) | `retool_db.gauntlet_standings` is the table the Retool refresh writes to and the webhook reads from. One row per board: 1 Gauntlet, 2 Rumble. |
+| `.github/workflows/publish.yml` | The only workflow. Builds every board and commits; GitHub's own Pages builder deploys the push. |
+| `retool/rips-rumble.md` | The Retool edits the Rumble needs before it can publish. |
 
 ## 7. Copy rules for anything written around this
 

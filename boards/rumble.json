@@ -1,0 +1,54 @@
+{
+  "_comment": "Rips Rumble. Ranked by total pack purchases, which is the sum of DEBIT rows in RipsWalletTransaction. A far bigger field than the Gauntlet: about 6,600 players over a week against 950.",
+
+  "slug": "rumble",
+  "out": "rumble/index.html",
+
+  "_snapshot_comment": "Row 2 of retool_db.gauntlet_standings. The same gauntlet-refresh workflow writes both rows in one run, so the Rumble costs no extra Retool workflow run.",
+  "snapshot_id": 2,
+  "sql": "sql/rumble.sql",
+
+  "nav_label": "Rips Rumble",
+  "title": "Rips Rumble",
+  "eyebrow": "Rips",
+  "headline": ["Rips", "Rumble"],
+  "ranked_by": "Ranked By Packs Opened",
+  "_absent_comment": "Shown when a search finds nobody. Replaced automatically when the field is larger than the board, which is then the real reason.",
+  "absent": "Players appear after their first Rips pack",
+  "measure": "total spent opening Rips packs",
+  "_terms_comment": "No qualifier: unlike the Gauntlet this counts every pack purchase, sweeps or not, which is what 'stake are total purchases of packs' means.",
+  "qualifier": "",
+  "tiebreak": "packs",
+
+  "_window_comment": "Inclusive YYYY-MM-DD bounds, Eastern. Two days only.",
+  "start_date": "2026-11-26",
+  "end_date": "2026-11-27",
+
+  "_prizes_comment": "The original Gauntlet ladder: 10,000 across 20 places. 'pool' is a checksum and the build aborts if the ladder does not sum to it.",
+  "_cap_comment": "How many ranks the page lists, and so how many it can search. Jordan, 2026-11-25: keep it at 1000 so the page stays quick. The Rips field is about 6,600, so ranks past 1000 are off the board and cannot be searched for; raising this to 10000 was measured at 440 KB, 84 KB over the wire, if that trade is ever wanted.",
+  "cap": 1000,
+  "pool": 10000,
+  "prizes": {
+    "1": 2500,
+    "2": 2000,
+    "3": 1500,
+    "4": 1000,
+    "5": 750,
+    "6": 500,
+    "7": 250,
+    "8": 200,
+    "9": 200,
+    "10-20": 100
+  },
+
+  "_affiliate_comment": "Affiliates are in, as on the Gauntlet since 2026-11-20. The Rips query has no affiliate clause at all.",
+  "_alias_comment": "The table alias this board's query uses for the rows being counted. Only read when exclude_affiliates is true, to aim the Promotion sub-select at the right column.",
+  "user_alias": "rwt",
+  "exclude_affiliates": false,
+
+  "_excluded_comment": "Individuals kept out, as one-way digests rather than usernames because this repository is public. Generate one with: python3 build.py --exclude-key \"thehandle\"",
+  "excluded": [],
+
+  "_final_comment": "Set true for the closing update. Changes the hero line to 'Final Standings as of'.",
+  "final": false
+}

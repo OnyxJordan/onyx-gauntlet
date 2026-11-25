@@ -46,17 +46,78 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE = ROOT / "template.html"
-ROUND = ROOT / "round.json"
-SQL = ROOT / "standings.sql"
-PREV = ROOT / "previous.json"
-OUT = ROOT / "index.html"
+HOME_TEMPLATE = ROOT / "home.html"
+BOARDS = ROOT / "boards"
+HOME_OUT = ROOT / "index.html"
+
+# Every board is one file in boards/. It carries its dates, prize ladder and
+# page copy, which row of the parked snapshot it reads, and which query
+# produced it. Adding a third board is adding a file, not editing this script.
+DEFAULT_BOARDS = ("gauntlet", "rumble")
+
+
+def board_path(slug):
+    return BOARDS / f"{slug}.json"
+
+
+def board_sql(cfg):
+    return ROOT / cfg.get("sql", "sql/gauntlet.sql")
+
+
+def board_out(cfg):
+    return ROOT / cfg["out"]
+
+
+def site_boards():
+    """Every board that exists on disk, in menu order. Used for the nav, so a
+    board file that has not been written yet simply does not get a tab."""
+    return [load_board(s) for s in DEFAULT_BOARDS if board_path(s).exists()]
+
+
+def here(cfg=None):
+    """How far the page at `cfg` sits below the site root, as a href prefix.
+
+    The site is served from a project path (onyxjordan.github.io/onyx-gauntlet/),
+    not a domain root, so every link has to be relative. A board page lives one
+    directory down; the homepage is the root itself."""
+    if cfg is None:
+        return ""
+    return "../" * len(Path(cfg["out"]).parent.parts)
+
+
+def nav_html(current=None):
+    """The header pill row. `current` is the board being rendered, or None on
+    the homepage."""
+    up = here(current)
+    out = [f'<a class="tab" href="{up or "./"}"'
+           + (' aria-current="page"' if current is None else "")
+           + "><b>Home</b><i>Home</i></a>"]
+    for cfg in site_boards():
+        folder = Path(cfg["out"]).parent
+        mine = current is not None and cfg["slug"] == current["slug"]
+        label = cfg.get("nav_label", cfg.get("title", cfg["slug"]))
+        short = cfg.get("nav_short", label.split()[-1])
+        out.append(
+            f'<a class="tab" href="{up}{folder}/"'
+            + (' aria-current="page"' if mine else "")
+            + f"><b>{label}</b><i>{short}</i></a>"
+        )
+    return "\n      ".join(out)
+
+
+def board_state(cfg):
+    """Movement state, one file per board. They must not share: the Rumble's
+    ranks have nothing to do with the Gauntlet's."""
+    return ROOT / "state" / f"{cfg['slug']}.json"
 
 EASTERN = ZoneInfo("America/New_York")
 
-# An affiliate is a user whose id owns a Promotion.
+# An affiliate is a user whose id owns a Promotion. {alias} is the board's own
+# table alias, because each board's query joins a different table: the Gauntlet
+# reads "ThirdPartyBet" as tpb, the Rumble "RipsWalletTransaction" as rwt.
 AFFILIATE_EXCLUDE = (
     '  AND NOT EXISTS (SELECT 1 FROM "Promotion" _aff '
-    'WHERE _aff."ownerUserId" = tpb."userId")'
+    'WHERE _aff."ownerUserId" = {alias}."userId")'
 )
 # A handle ending in a long digit run is usually a signup fallback id.
 FALLBACK_ID = re.compile(r"\d{6,}$")
@@ -66,14 +127,18 @@ FALLBACK_ID = re.compile(r"\d{6,}$")
 # round config
 # --------------------------------------------------------------------------
 
-def load_round(path=ROUND):
+def load_board(slug):
+    path = board_path(slug)
+    if not path.exists():
+        raise SystemExit(f"no board called {slug!r}; looked for {path}")
     cfg = json.loads(path.read_text())
+    cfg.setdefault("slug", slug)
     cfg["prize_table"] = expand_prizes(cfg.get("prizes", {}))
     pool, total = cfg.get("pool"), sum(cfg["prize_table"])
     if pool is not None and total != pool:
         raise SystemExit(
-            f"prize ladder sums to {total:,} but round.json declares pool {pool:,}. "
-            "Fix one or the other before publishing."
+            f"{slug}: prize ladder sums to {total:,} but the board declares pool "
+            f"{pool:,}. Fix one or the other before publishing."
         )
     return cfg
 
@@ -86,10 +151,10 @@ def expand_prizes(prizes):
             continue
         lo, hi = (int(p) for p in key.split("-", 1)) if "-" in key else (int(key), int(key))
         if lo < 1 or hi < lo:
-            raise SystemExit(f"bad prize range {key!r} in round.json")
+            raise SystemExit(f"bad prize range {key!r} in the board file")
         for r in range(lo, hi + 1):
             if r in by_rank:
-                raise SystemExit(f"rank {r} gets a prize twice in round.json")
+                raise SystemExit(f"rank {r} gets a prize twice in the board file")
             by_rank[r] = amount
     return [by_rank.get(r, 0) for r in range(1, max(by_rank) + 1)] if by_rank else []
 
@@ -98,13 +163,14 @@ def expand_prizes(prizes):
 # the ranking query
 # --------------------------------------------------------------------------
 
-def standings_sql(cfg, flavor="psycopg", sql_path=SQL):
+def standings_sql(cfg, flavor="psycopg", sql_path=None):
     """Fill standings.sql's markers and rewrite its :named parameters for the
     client that will run it. 'psycopg' also doubles every literal percent sign,
     which psycopg would otherwise read as a placeholder: the internal-user
     filter contains a real one, in LIKE '%@onyxodds.com'."""
-    sql = sql_path.read_text()
-    affiliate = AFFILIATE_EXCLUDE if cfg.get("exclude_affiliates", True) else ""
+    sql = (sql_path or board_sql(cfg)).read_text()
+    affiliate = (AFFILIATE_EXCLUDE.format(alias=cfg.get("user_alias", "tpb"))
+                 if cfg.get("exclude_affiliates", True) else "")
     # int() is the guard: cap reaches the query as a literal, not a bind param.
     sql = (sql.replace("  /*AFFILIATE_FILTER*/", affiliate)
               .replace("/*ROW_LIMIT*/", f"LIMIT {int(cfg.get('cap', 1000))}"))
@@ -115,6 +181,13 @@ def standings_sql(cfg, flavor="psycopg", sql_path=SQL):
     if flavor == "retool":
         return (sql.replace(":start_date", "{{ startTrigger.data.startDate }}")
                    .replace(":end_date", "{{ startTrigger.data.endDate }}"))
+    if flavor == "scheduled":
+        # A scheduled workflow has no incoming request to read the dates from,
+        # so they go in as literals. Taken from the board file, which is the
+        # same file the page's dates and prize ladder come from: paste this and
+        # the two cannot disagree.
+        return (sql.replace(":start_date", f"'{cfg['start_date']}'")
+                   .replace(":end_date", f"'{cfg['end_date']}'"))
     raise SystemExit(f"unknown SQL flavor {flavor!r}")
 
 
@@ -219,7 +292,8 @@ def from_retool_db(cfg):
         with conn, conn.cursor() as cur:
             cur.execute("SET statement_timeout = '30s'")
             cur.execute("SELECT payload, refreshed_at, round_start, round_end, row_count "
-                        "FROM gauntlet_standings WHERE id = 1")
+                        "FROM gauntlet_standings WHERE id = %s",
+                        (int(cfg.get("snapshot_id", 1)),))
             row = cur.fetchone()
     except Exception as exc:                       # noqa: BLE001
         raise Skip(f"query failed: {str(exc).strip()[:160]}")
@@ -227,7 +301,8 @@ def from_retool_db(cfg):
         conn.close()
 
     if not row:
-        raise Skip("gauntlet_standings has no row 1 yet")
+        raise Skip(f"gauntlet_standings has no row "
+                   f"{cfg.get('snapshot_id', 1)} yet")
     payload, refreshed_at, round_start, round_end, _count = row
 
     # Only this path can see the window the standings were actually computed
@@ -238,8 +313,9 @@ def from_retool_db(cfg):
     got = (str(round_start), str(round_end))
     if all(got) and got != want:
         raise SystemExit(
-            f"the parked standings cover {got[0]} to {got[1]}, but round.json says "
-            f"{want[0]} to {want[1]}.\nThe dates live in two places: round.json here "
+            f"the parked standings for {cfg['slug']} cover {got[0]} to {got[1]}, but "
+            f"boards/{cfg['slug']}.json says {want[0]} to {want[1]}.\nThe dates live in "
+            f"two places: the board file here "
             f"and the standings block of the gauntlet-refresh workflow in Retool. "
             f"Change them together, then let the refresh run once.")
 
@@ -253,7 +329,69 @@ def from_retool_db(cfg):
     return usernames(rows)
 
 
+# The webhook answer, kept for the rest of the run. One call returns every
+# board, so publishing two boards costs the same one Retool workflow run as
+# publishing one. Spending a run per board is what exhausted the org's
+# allowance in November.
+_WEBHOOK_CACHE = None
+
+
+def pick_snapshot(payload, cfg):
+    """Find this board's parked snapshot in the webhook's answer.
+
+    Two shapes are accepted. The one the workflow returns now is a list of
+    rows straight out of gauntlet_standings, each with its id; the older one
+    is a bare standings array, which can only ever be the Gauntlet.
+
+    Anything else is refused rather than guessed at: handing the Rumble the
+    Gauntlet's standings would publish real players under the wrong prize
+    ladder, which is the single worst thing this script can do."""
+    want = int(cfg.get("snapshot_id", 1))
+    rows = payload.get("boards") if isinstance(payload, dict) else None
+    if rows is None and isinstance(payload, dict) and isinstance(payload.get("standings"), list):
+        first = payload["standings"][0] if payload["standings"] else None
+        # A row carrying a payload is a snapshot record, not a player.
+        if isinstance(first, dict) and "payload" in first:
+            rows = payload["standings"]
+    if rows is None:
+        if want != 1:
+            raise SystemExit(
+                f"the Retool webhook answered with one board's standings, but this "
+                f"board reads snapshot {want}. Publishing the other board's numbers "
+                f"under this ladder is not something to risk, so nothing was written. "
+                f"Update the gauntlet-standings workflow to return every row of "
+                f"gauntlet_standings; SETUP.md has the two blocks.")
+        return payload
+
+    for row in rows:
+        if not isinstance(row, dict) or int(row.get("id", -1)) != want:
+            continue
+        got = (str(row.get("round_start") or ""), str(row.get("round_end") or ""))
+        wanted = (cfg.get("start_date"), cfg.get("end_date"))
+        if all(got) and got != wanted:
+            raise SystemExit(
+                f"the parked standings for {cfg['slug']} cover {got[0]} to {got[1]}, "
+                f"but boards/{cfg['slug']}.json says {wanted[0]} to {wanted[1]}.\n"
+                f"The dates live in two places: the board file here and the "
+                f"standings block of the gauntlet-refresh workflow in Retool. "
+                f"Change them together, then let the refresh run once.")
+        return {"standings": row.get("payload"), "refreshed_at": row.get("refreshed_at")}
+
+    raise SystemExit(
+        f"gauntlet_standings has no row {want} yet, so {cfg['slug']} has nothing to "
+        f"publish. Add the block that writes it in the gauntlet-refresh workflow "
+        f"and run it once; SETUP.md has the SQL.")
+
+
 def from_retool(cfg, timeout=600):
+    global _WEBHOOK_CACHE
+    if _WEBHOOK_CACHE is not None:
+        payload = pick_snapshot(_WEBHOOK_CACHE, cfg)
+        capture_as_of(cfg, payload)
+        rows = unwrap(payload)
+        if not rows:
+            raise SystemExit(f"the parked payload for {cfg['slug']} is empty")
+        return usernames(rows)
     url = os.environ.get("RETOOL_WEBHOOK_URL", "").strip()
     key = os.environ.get("RETOOL_WORKFLOW_KEY", "").strip()
     if not url:
@@ -261,6 +399,8 @@ def from_retool(cfg, timeout=600):
     body = json.dumps({
         "startDate": cfg.get("start_date", ""),
         "endDate": cfg.get("end_date", ""),
+        "board": cfg.get("slug", "gauntlet"),
+        "snapshotId": cfg.get("snapshot_id", 1),
     }).encode()
     req = urllib.request.Request(url, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
@@ -289,6 +429,8 @@ def from_retool(cfg, timeout=600):
     except json.JSONDecodeError:
         raise SystemExit(f"Retool webhook did not return JSON. First 300 chars:\n{raw[:300]}")
 
+    _WEBHOOK_CACHE = payload
+    payload = pick_snapshot(payload, cfg)
     capture_as_of(cfg, payload)
     rows = unwrap(payload)
     if not rows:
@@ -370,7 +512,7 @@ ANCHOR_SPACING_HOURS = 3
 HISTORY_KEEP_HOURS = MOVE_WINDOW_HOURS + 6
 
 
-def load_previous(path=PREV):
+def load_previous(path):
     """Movement state: a short history of standings snapshots, oldest first.
 
     Each entry is {"as_of": <snapshot id>, "order": [player keys in rank
@@ -458,7 +600,7 @@ def movement(names, baseline):
             for i, u in enumerate(names)]
 
 
-def save_previous(names, when, data_as_of, state, path=PREV):
+def save_previous(names, when, data_as_of, state, path):
     """Record this snapshot as an anchor, if the newest one is old enough to
     need company, then drop anchors past the retention window.
 
@@ -507,7 +649,7 @@ def updated_line(when, final=False):
 
 
 def round_line(cfg):
-    """The round window, for the hero and the terms. Reads from round.json, so
+    """The round window, for the hero and the terms. Reads from the board file, so
     the dates on the page cannot drift from the dates the query ran with.
 
     Collapses the month when both ends share it, "November 12 to 18, 2026",
@@ -516,7 +658,8 @@ def round_line(cfg):
         a = datetime.date.fromisoformat(cfg["start_date"])
         b = datetime.date.fromisoformat(cfg["end_date"])
     except (KeyError, ValueError):
-        raise SystemExit("round.json needs start_date and end_date as YYYY-MM-DD")
+        raise SystemExit(f"{cfg.get('slug', 'this board')} needs start_date and "
+                         "end_date as YYYY-MM-DD")
     if a == b:
         return f"{a.strftime('%B')} {a.day}, {a.year}"
     if (a.year, a.month) == (b.year, b.month):
@@ -532,7 +675,7 @@ def drop_excluded(names, cfg):
 
     Affiliates as a group are in the board: some of them promote the
     leaderboard, so excluding all of them was wrong. Individuals are taken out
-    one at a time instead, which is what "excluded" in round.json is for.
+    one at a time instead, which is what "excluded" in the board file is for.
 
     It holds digests, not usernames, because this repository is public and a
     username committed to it is a published username. Generate one with:
@@ -571,8 +714,9 @@ def report(names):
                 print(f"    rank {hit[0]}: {hit[1]}", file=sys.stderr)
 
 
-def render(names, cfg, when, deltas=None, template=TEMPLATE):
+def render(names, cfg, when, deltas=None, template=TEMPLATE, stamp=None):
     table = cfg["prize_table"]
+    total = len(names)
     shown = names[: int(cfg.get("cap", 1000))]
     deltas = deltas or [None] * len(shown)
     rows = [
@@ -585,14 +729,35 @@ def render(names, cfg, when, deltas=None, template=TEMPLATE):
     data = json.dumps(rows, separators=(",", ":")).replace("<", "\\u003c")
 
     paid = sum(1 for p in table if p > 0)
+    head = cfg.get("headline") or [cfg.get("title", ""), ""]
+    qualifier = (cfg.get("qualifier") or "").strip()
     html = template.read_text()
-    for placeholder, value in (("__UPDATED__", updated_line(when, cfg.get("final", False))),
+    for placeholder, value in (("__UPDATED__",
+                                stamp or updated_line(when, cfg.get("final", False))),
+                               # Board identity. Every one of these used to be
+                               # typed into the template, which is why there was
+                               # only ever one board.
+                               ("__TITLE__", cfg.get("title", cfg["slug"])),
+                               ("__EYEBROW__", cfg.get("eyebrow", "")),
+                               ("__H1A__", head[0]),
+                               ("__H1B__", head[-1]),
+                               ("__RANKED_BY__", cfg.get("ranked_by", "Live Standings")),
+                               ("__MEASURE__", cfg.get("measure", "")),
+                               ("__SWEEPS__", f" {qualifier}" if qualifier else ""),
+                               ("__UNIT__", cfg.get("tiebreak", "rounds")),
+                               ("__NAV__", nav_html(cfg)),
+                               # Board pages sit one directory down, so
+                               # the shared assets are reached relatively.
+                               ("__UP__", here(cfg)),
                                ("__ROUND__", round_line(cfg)),
                                # Counted from the ladder rather than written out,
                                # so the terms cannot promise a different number of
                                # places or a different pool than the page pays.
                                ("__PLACES__", str(paid)),
                                ("__POOL__", f"{sum(table):,}"),
+                               ("__PLAYERS__", str(total)),
+                               ("__ABSENT__", cfg.get("absent",
+                                   "Players appear after their first round")),
                                ("__DATA__", data)):
         if placeholder not in html:
             raise SystemExit(f"template is missing {placeholder}")
@@ -600,7 +765,113 @@ def render(names, cfg, when, deltas=None, template=TEMPLATE):
 
     if re.search(r"var ALL=.*?[\"']u[\"']:\s*[\"'][^\"'*]{3,}[\"']", html):
         raise SystemExit("refusing to write: an unmasked handle reached the page data")
-    return html, rows
+    return html, rows, total
+
+
+# --------------------------------------------------------------------------
+# homepage
+# --------------------------------------------------------------------------
+
+def board_status(cfg, today=None):
+    """Where this board sits against today, Eastern. Returns (class, label)."""
+    today = today or datetime.datetime.now(EASTERN).date()
+    start = datetime.date.fromisoformat(cfg["start_date"])
+    end = datetime.date.fromisoformat(cfg["end_date"])
+    if today < start:
+        return "soon", f"Opens {start.strftime('%B')} {start.day}"
+    if today > end:
+        return "done", "Final"
+    return "live", "Live Now"
+
+
+def board_card(cfg, stats, up=""):
+    """One homepage card. `stats` is what build_board returned for this board,
+    or None when it could not be built: the card still appears, with the dates
+    and the prize ladder, which are known from the board file alone."""
+    klass, label = board_status(cfg)
+    head = cfg.get("headline") or [cfg.get("title", ""), ""]
+    table = cfg["prize_table"]
+    paid = stats["paid"] if stats else sum(1 for v in table if v > 0)
+    players = f"{stats['total']:,}" if stats else "&mdash;"
+    folder = Path(cfg["out"]).parent
+    art = "turkey" if cfg["slug"] == "gauntlet" else "pumpkin"
+    # Only link to a board that has a page. Before a round opens there are no
+    # standings to publish, so the page does not exist yet and a link to it
+    # would be a 404 on the front door.
+    live = board_out(cfg).exists()
+    open_tag = f'<a class="bcard" href="{up}{folder}/">' if live else '<div class="bcard">'
+    close_tag = "</a>" if live else "</div>"
+    cta = ('<span class="btn sm">View Standings</span>' if live
+           else '<span class="btn sm" aria-disabled="true">Standings Open Soon</span>')
+    return f"""{open_tag}
+        <canvas data-ox-art="{art}" data-ox-tone="amber" data-ox-fade="0"
+                data-ox-calm=".45" data-ox-cell="5" data-ox-lens="0" aria-hidden="true"></canvas>
+        <span class="bflag {klass}">{label}</span>
+        <h2>{head[0]} <em>{head[-1]}</em></h2>
+        <p class="bwhen">{round_line(cfg)}</p>
+        <p class="bwhat">Ranked by {cfg.get('measure', '')}.</p>
+        <div class="bnums">
+          <div><b>{sum(table):,}</b><i>Bonus Onyx Cash</i></div>
+          <div><b>{paid}</b><i>Winning Places</i></div>
+          <div><b>{players}</b><i>Players</i></div>
+        </div>
+        {cta}
+      {close_tag}"""
+
+
+def placeholder_board(cfg):
+    """Write a board's page before it has any standings.
+
+    A board with no parked row cannot be built, and until its page exists the
+    homepage card and the header tab either point at a 404 or have to be
+    disabled. This writes the real page with an empty table instead: the dates,
+    the prize ladder and the terms are all known from the board file alone, so
+    the URL works from the moment the board is announced.
+
+    Only ever called when the page does not already exist. It must never
+    overwrite standings."""
+    out = board_out(cfg)
+    if out.exists():
+        return False
+    start = datetime.date.fromisoformat(cfg["start_date"])
+    stamp = f"Standings open {start.strftime('%B')} {start.day}, {start.year}"
+    html, _rows, _total = render([], cfg, datetime.datetime.now(EASTERN), stamp=stamp)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(html)
+    print(f"{cfg['slug']}: wrote {out} as a pre-round page, 0 players",
+          file=sys.stderr)
+    return True
+
+
+def write_home(built):
+    """The front door. Lists every board on disk, filled in from whichever of
+    them built this run, and never fails the publish: a homepage that cannot be
+    written leaves the board pages up rather than taking them down."""
+    by_slug = {b["cfg"]["slug"]: b for b in built}
+    boards = site_boards()
+    cards = "\n      ".join(board_card(c, by_slug.get(c["slug"])) for c in boards)
+    pool = sum(sum(c["prize_table"]) for c in boards)
+    count = {1: "one board", 2: "two boards", 3: "three boards"}.get(
+        len(boards), f"{len(boards)} boards")
+    # The stamp is the freshest board's, not now(): it is the age of the
+    # numbers on the cards, and saying "now" would overstate them.
+    when = max((b["when"] for b in built), default=datetime.datetime.now(EASTERN))
+    words = ["Onyx Thanksgiving"] + [c.get("title", c["slug"]) for c in boards] \
+        + [f"{pool:,} Bonus Onyx Cash", "Live Standings"]
+
+    html = HOME_TEMPLATE.read_text()
+    for placeholder, value in (("__NAV__", nav_html(None)),
+                               ("__CARDS__", cards),
+                               ("__POOL__", f"{pool:,}"),
+                               ("__COUNT__", count),
+                               ("__UPDATED__", updated_line(when)),
+                               ("__WORDS__", json.dumps(words).replace("<", "\\u003c"))):
+        if placeholder not in html:
+            raise SystemExit(f"home.html is missing {placeholder}")
+        html = html.replace(placeholder, value)
+    HOME_OUT.write_text(html)
+    print(f"home: wrote {HOME_OUT}: {len(boards)} boards, {pool:,} in total prizes",
+          file=sys.stderr)
 
 
 # --------------------------------------------------------------------------
@@ -626,39 +897,113 @@ def parse_when(text):
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Build the Gauntlet leaderboard page.")
+    ap = argparse.ArgumentParser(description="Build the Onyx leaderboard pages.")
     ap.add_argument("--source", choices=("auto", "db", "retool", "json"), default="auto",
                     help="auto: the database if RETOOL_DB_URL is set, else the webhook")
-    ap.add_argument("--json-file", type=Path, help="standings JSON, with --source json")
+    ap.add_argument("--json-file", type=Path,
+                    help="standings JSON, with --source json. \"{board}\" in the "
+                         "path is replaced with each board's slug.")
     ap.add_argument("--at", help="timestamp for the hero line, Eastern. Default: now.")
     ap.add_argument("--final", action="store_true",
-                    help='say "Final Standings as of" (same as "final": true in round.json)')
-    ap.add_argument("--print-sql", choices=("psycopg", "retool"), metavar="FLAVOR",
-                    help="print the standings query for this round and exit")
+                    help='say "Final Standings as of" (same as "final": true in the board file)')
+    ap.add_argument("--print-sql", choices=("psycopg", "retool", "scheduled"),
+                    metavar="FLAVOR",
+                    help="print the standings query for each board and exit. "
+                         "\"scheduled\" writes the board's dates in as literals, "
+                         "which is what the Retool scheduled workflow needs.")
     ap.add_argument("--exclude-key", metavar="USERNAME",
-                    help="print the digest to add to \"excluded\" in round.json "
+                    help="print the digest to add to \"excluded\" in a board file "
                          "to keep this player out of the standings, and exit")
-    ap.add_argument("--out", type=Path, default=OUT)
+    ap.add_argument("--board", choices=DEFAULT_BOARDS,
+                    help="build one board instead of all of them")
+    ap.add_argument("--out", type=Path, default=None,
+                    help="write this board somewhere else; skips the homepage "
+                         "and leaves the movement state alone")
     args = ap.parse_args(argv)
 
     if args.exclude_key:
         print(search_key(args.exclude_key))
-        print(f'Add that line to "excluded" in round.json. It is a one-way '
+        print(f'Add that line to "excluded" in the board file. It is a one-way '
               f'digest, so the handle itself never reaches this public repo.',
               file=sys.stderr)
         return 0
 
-    cfg = load_round()
+    slugs = [args.board] if args.board else list(DEFAULT_BOARDS)
+
+    # --source json is the offline escape hatch, and pointing every board at
+    # one file would publish one board's players under another's prize ladder.
+    if (args.source == "json" and len(slugs) > 1
+            and "{board}" not in str(args.json_file or "")):
+        raise SystemExit(
+            "--source json is building more than one board, so --json-file must "
+            "contain \"{board}\" (for example fixtures/{board}.json). Without it "
+            "every board would be fed the same standings. Use --board to build one.")
+
     if args.print_sql:
-        print(standings_sql(cfg, args.print_sql))
+        for slug in slugs:
+            if len(slugs) > 1:
+                print(f"-- ===== {slug} =====")
+            print(standings_sql(load_board(slug), args.print_sql))
         return 0
+
+    built, failed = [], []
+    for slug in slugs:
+        try:
+            built.append(build_board(slug, args))
+        except (SystemExit, Exception) as why:
+            # One board must never take the others down with it. The Gauntlet
+            # keeps publishing while the Rumble has no parked row yet, and a
+            # bad Rumble ladder cannot freeze the Gauntlet mid-round.
+            #
+            # Anything at all is caught, not just the deliberate SystemExits:
+            # the point is that the other boards' pages stay correct and keep
+            # updating, and an unexpected error is exactly the case where that
+            # matters most. The board that failed is left as it last was.
+            if len(slugs) == 1:
+                raise
+            print(f"{slug}: NOT published: {why!s} ({type(why).__name__})",
+                  file=sys.stderr)
+            failed.append(slug)
+            if args.out is None:
+                try:
+                    placeholder_board(load_board(slug))
+                except Exception as oops:          # noqa: BLE001
+                    print(f"{slug}: no pre-round page either: {oops}", file=sys.stderr)
+
+    if not built:
+        raise SystemExit("no board could be built; leaving every page as it stands.")
+
+    if args.out is None and HOME_TEMPLATE.exists():
+        # The homepage is a signpost. If it cannot be written, the boards it
+        # points at are still correct and still published, so this must not be
+        # what takes the site down.
+        try:
+            write_home(built)
+        except Exception as why:
+            print(f"home: NOT rewritten: {why}", file=sys.stderr)
+
+    if failed:
+        # Loud, but not a failed run: the boards that did build are published
+        # and must not be rolled back because another one could not be.
+        print(f"::warning::built {len(built)}, could not build "
+              f"{', '.join(failed)}", file=sys.stderr)
+    return 0
+
+
+def build_board(slug, args):
+    """Fetch, rank and write one board. Returns what the homepage needs."""
+    cfg = load_board(slug)
     if args.final:
         cfg["final"] = True
+    out = args.out or board_out(cfg)
 
     if args.source == "json":
         if not args.json_file:
             raise SystemExit("--source json needs --json-file")
-        payload = json.loads(args.json_file.read_text())
+        # "{board}" in the path lets one run feed every board from its own
+        # file, which is how both boards get tested together offline.
+        path = Path(str(args.json_file).replace("{board}", slug))
+        payload = json.loads(path.read_text())
         capture_as_of(cfg, payload)
         names = usernames(unwrap(payload))
     elif args.source == "retool":
@@ -674,16 +1019,16 @@ def main(argv=None):
         except Skip as why:
             if args.source == "db":
                 raise SystemExit(f"--source db: {why}")
-            print(f"database read skipped ({why}); falling back to the webhook",
+            print(f"{slug}: database read skipped ({why}); falling back to the webhook",
                   file=sys.stderr)
             names = from_retool(cfg)
 
-    print(f"{len(names)} rows from {args.source}", file=sys.stderr)
+    print(f"{slug}: {len(names)} rows from {args.source}", file=sys.stderr)
     names, dropped = drop_excluded(names, cfg)
     if dropped:
         # Named, not counted silently: an exclusion moves everyone below it up
         # a place and changes who is paid, so it belongs in the run log.
-        print(f"excluded {dropped} named "
+        print(f"{slug}: excluded {dropped} named "
               f"{'player' if dropped == 1 else 'players'}", file=sys.stderr)
     report(names)
     if not names:
@@ -695,7 +1040,7 @@ def main(argv=None):
     elif cfg.get("_data_as_of"):
         when = parse_iso_eastern(cfg["_data_as_of"])
         age = datetime.datetime.now(EASTERN) - when
-        print(f"standings gathered {when:%Y-%m-%d %H:%M %Z}, "
+        print(f"{slug}: standings gathered {when:%Y-%m-%d %H:%M %Z}, "
               f"{int(age.total_seconds() // 60)} minutes old", file=sys.stderr)
         if age > datetime.timedelta(hours=12):
             raise SystemExit(
@@ -706,7 +1051,8 @@ def main(argv=None):
     else:
         when = parse_when(None)
 
-    state = load_previous()
+    statefile = board_state(cfg)
+    state = load_previous(statefile)
     data_as_of = cfg.get("_data_as_of") or when.isoformat()
     already_stored = data_as_of in [h["as_of"] for h in state["history"]]
 
@@ -715,32 +1061,33 @@ def main(argv=None):
     # standings shows the same arrows rather than flattening them.
     baseline = pick_baseline(state["history"], data_as_of)
     deltas = movement(names, baseline)
-    html, rows = render(names, cfg, when, deltas)
-    args.out.write_text(html)
+    html, rows, total = render(names, cfg, when, deltas)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(html)
 
     # Only record once the page is written, so an aborted build cannot swallow
     # a round of movement.
-    if args.out == OUT and not already_stored:
-        save_previous(names, when, data_as_of, state)
+    if out == board_out(cfg) and not already_stored:
+        save_previous(names, when, data_as_of, state, statefile)
 
     if baseline:
         age = parse_snapshot(data_as_of) - parse_snapshot(baseline["as_of"])
         hours = age.total_seconds() / 3600
         short = hours + 0.05 < MOVE_WINDOW_HOURS
-        print(f"movement measured over {hours:.1f}h"
+        print(f"{slug}: movement measured over {hours:.1f}h"
               + (f" (still filling the {MOVE_WINDOW_HOURS}h window)" if short else ""),
               file=sys.stderr)
     else:
-        print("no history yet; every player reads New", file=sys.stderr)
+        print(f"{slug}: no history yet; every player reads New", file=sys.stderr)
 
     moved = [d for d in deltas if d]
-    print(f"movement: {sum(1 for d in deltas if d is None)} new, "
+    print(f"{slug}: movement: {sum(1 for d in deltas if d is None)} new, "
           f"{sum(1 for d in moved if d > 0)} up, {sum(1 for d in moved if d < 0)} down, "
           f"{sum(1 for d in deltas if d == 0)} unchanged", file=sys.stderr)
     paid = sum(1 for r in rows if r["p"] > 0)
-    print(f"Wrote {args.out}: {len(rows)} players, {paid} paid places, "
+    print(f"{slug}: wrote {out}: {len(rows)} players, {paid} paid places, "
           f"{sum(r['p'] for r in rows):,} awarded", file=sys.stderr)
-    return 0
+    return {"cfg": cfg, "rows": rows, "when": when, "paid": paid, "total": total}
 
 
 if __name__ == "__main__":

@@ -1,6 +1,10 @@
-# Onyx Odds, Gauntlet leaderboard.
-# Fetches the standings, renders index.html and commits it. That is the whole
-# publish: the commit IS the deploy.
+# Onyx Odds leaderboards.
+# Fetches the standings, renders every board in boards/ plus the homepage, and
+# commits them. That is the whole publish: the commit IS the deploy.
+#
+# One run of build.py publishes every board and costs ONE Retool workflow run,
+# because the webhook returns every parked snapshot in a single answer and the
+# build picks each board's out of it. Adding a board must not change that.
 #
 # This workflow does not deploy to Pages and must not start again. Pages on
 # this repository is served from the main branch, so GitHub's own "pages build
@@ -125,11 +129,26 @@ jobs:
           # This runs before the commit, not after, because committing IS
           # publishing: GitHub's own branch builder deploys every push to main.
           # A broken page that reaches the commit is already live.
-          test -s index.html || { echo "::error::index.html is missing or empty"; exit 1; }
-          if grep -q "__DATA__\|__UPDATED__\|__ROUND__\|__POOL__\|__PLACES__" index.html; then
-            echo "::error::index.html still contains template placeholders"
-            exit 1
-          fi
+          #
+          # Every page the build writes is checked, not just the homepage. A
+          # board that could not be built is left exactly as it was and is
+          # therefore still valid, so this looks at what is on disk rather than
+          # at what this run happened to rewrite.
+          fail=0
+          for f in index.html */index.html; do
+            [ -e "$f" ] || continue
+            if [ ! -s "$f" ]; then
+              echo "::error::$f is empty"; fail=1; continue
+            fi
+            # An unfilled placeholder means a template and a board file have
+            # drifted apart, and the page says __POOL__ where a number belongs.
+            if grep -qE '__[A-Z0-9_]+__' "$f"; then
+              echo "::error::$f still contains template placeholders:"
+              grep -oE '__[A-Z0-9_]+__' "$f" | sort -u
+              fail=1
+            fi
+          done
+          [ "$fail" = 0 ] || exit 1
 
       - name: Commit if the standings changed
         env:
@@ -149,10 +168,10 @@ jobs:
           }
 
           for attempt in 1 2 3; do
-            # previous.json must be committed too, not just the page: it carries
-            # the ranks the next run diffs against. Without it every run starts
-            # blank and the Move column reads New forever.
-            git add index.html previous.json
+            # The state files must be committed too, not just the pages: they
+            # carry the ranks the next run diffs against. Without them every run
+            # starts blank and the Move column reads New forever.
+            git add -A index.html */index.html state
             if git diff --cached --quiet; then
               echo "no change"
               exit 0
@@ -180,8 +199,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: index-html
-          path: index.html
+          name: pages
+          path: |
+            index.html
+            */index.html
           if-no-files-found: ignore
           retention-days: 14
 

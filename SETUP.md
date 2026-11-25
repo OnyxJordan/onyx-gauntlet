@@ -8,7 +8,7 @@ The four places:
 
 | Where | What lives there |
 |---|---|
-| **This repo** (github.com/OnyxJordan/onyx-gauntlet) | the page, the build script, the workflow, repo secrets |
+| **This repo** (github.com/OnyxJordan/onyx-gauntlet) | the pages, the build script, the workflow, repo secrets |
 | **Retool** (retoolonyx.retool.com) | the Minigames Live Dashboard, and the workflow that will serve standings over a webhook |
 | **The database** | the one index this needs, which neither Retool resource can create (stage 1) |
 | **tiiny.host** | nothing any more. The page moved off it. Cancel the plan if the API key was the only reason for it |
@@ -26,13 +26,13 @@ standings up right now.
 3. Top right of the page header, set **Affiliates** to **Exclude**.
    It defaults to All. Forgetting is the easiest way to publish standings that
    pay the wrong people.
-4. Range buttons, choose **Custom**, enter the dates from `round.json`
-   (currently `2026-11-12` to `2026-11-18`), press **Go**.
+4. Range buttons, choose **Custom**, enter the dates from the board file
+   (`boards/gauntlet.json`, currently `2026-11-20` to `2026-11-27`), press **Go**.
    Do not use the "Last 7 days" preset. It is backward looking and slides
    forward every day, so it stops matching the round.
 5. **Export HTML**, top right of the leaderboard card
-6. In this repo, open `index.html`, click the pencil, delete everything, paste
-   the exported file, commit
+6. In this repo, open `gauntlet/index.html`, click the pencil, delete
+   everything, paste the exported file, commit
 
 GitHub Pages redeploys in a minute or so. Use **Export CSV** for payouts, which
 carries real usernames alongside handle, paid and net.
@@ -117,6 +117,21 @@ Two rows means it worked. One row, the `userId` one, means it did not.
 
 ---
 
+## Adding a second board
+
+The Rips Rumble needs three edits in Retool and nothing else. They are written
+out step by step in [`retool/rips-rumble.md`](./retool/rips-rumble.md): take the
+single-row constraint off the storage table, compute and park the Rips
+standings in the same `gauntlet-refresh` run, and make the webhook return every
+row instead of row 1.
+
+That shape is deliberate. One refresh run computes both boards and one webhook
+call returns both, so a second board costs **no extra Retool workflow runs**.
+The allowance is 5,000 a month for the whole org and it ran out mid-round once
+already.
+
+---
+
 ## The Retool side: two workflows
 
 **Both are built and published as of 2026-11-13.** This records what they are,
@@ -152,14 +167,25 @@ never approaches Retool's 120 second synchronous cap.
 
 - Trigger: **Webhook**. Schedule off.
 - Block `standings`: Resource query on **retool_db**:
-  `SELECT payload, refreshed_at FROM gauntlet_standings WHERE id = 1`
-- Block `code1`: `return { standings: standings.data[0].payload, refreshed_at: standings.data[0].refreshed_at }`
+  `SELECT id, payload, refreshed_at, round_start, round_end FROM gauntlet_standings ORDER BY id`
+- Block `code1`: `return { boards: standings.data }`
 - Block `response1`: Status code `200`, Return body `code1.data` (no braces,
   that field is an expression box).
 
+It returns **every** board in one answer, and `build.py` picks each board's row
+out of it, because one call is one workflow run and the allowance is shared
+with every other workflow in the org.
+
+The earlier single-board version returned
+`{ standings: ..., refreshed_at: ... }` for row 1 only. The build still accepts
+that shape, so the Gauntlet keeps publishing either way; only a second board
+needs the version above.
+
 ### The storage table
 
-In `retool_db`, created 2026-11-13. One row, id always 1.
+In `retool_db`, created 2026-11-13. **One row per board**: id 1 is the
+Gauntlet, id 2 the Rips Rumble. A board file names the row it reads in its
+`snapshot_id`.
 
 ```sql
 CREATE TABLE IF NOT EXISTS gauntlet_standings (
@@ -168,10 +194,20 @@ CREATE TABLE IF NOT EXISTS gauntlet_standings (
   round_start  date,
   round_end    date,
   row_count    integer,
-  payload      jsonb NOT NULL,
-  CONSTRAINT gauntlet_standings_single_row CHECK (id = 1)
+  payload      jsonb NOT NULL
 );
 ```
+
+It was built with `CONSTRAINT gauntlet_standings_single_row CHECK (id = 1)`,
+which has to come off before a second board can be parked:
+
+```sql
+ALTER TABLE gauntlet_standings DROP CONSTRAINT IF EXISTS gauntlet_standings_single_row;
+```
+
+`round_start` and `round_end` are not decoration. The build compares them with
+the board file's dates and refuses to publish if they disagree, which is what
+stops one window's numbers going up under another window's prize ladder.
 
 ---
 
@@ -270,7 +306,7 @@ allowance. `gauntlet-refresh` becomes the only thing that spends runs: about
 
 It also gains a safety check the webhook cannot do. The parked row records the
 window the standings were computed over, so the build compares it against
-`round.json` and refuses to publish if they disagree. That is the mistake that
+the board file and refuses to publish if they disagree. That is the mistake that
 otherwise ships last round's numbers under this round's dates and prizes.
 
 ### 6a. Get the connection string

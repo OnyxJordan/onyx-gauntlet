@@ -1,0 +1,149 @@
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Geist+Mono:wght@400;500;700&family=Doto:wght@800;900&display=swap');
+
+/* Shared chrome for every page of this site: the design tokens, the reset, the
+   sticky header and its page tabs, the bracket button, the marquee, the hero
+   and the stat strip. The leaderboard's own table styles stay in the page.
+
+   It lives here so a theme change is one edit rather than one per page. The
+   Thanksgiving values are in :root below; the purple build this was themed
+   from is tagged round-2026-11-12_purple. */
+/* Onyx design system tokens, matching onyx.css on the Onyx Sports Data site:
+   black onyx surfaces, purple 400 accents, extended uppercase display type,
+   mono labels, bracket buttons, dot-ended rules. No yellow.
+   pos/neg/mut follow the convention set in that site's picks.html. */
+:root{
+  /* Thanksgiving round. Same structure and type as the Onyx house theme, with
+     the purple accents swapped for harvest ones and the greys warmed. The
+     purple build is tagged round-2026-11-12_purple; restore it with
+     git checkout round-2026-11-12_purple -- template.html onyx.js */
+  --ox-black:#0e0a07; --ox-ink:#080604; --ox-700:#2a1f16; --ox-600:#3d3228;
+  --ox-400:#9b8f80; --ox-200:#d8cec1; --ox-white:#fdf8f2; --ox-body:#bdae9e;
+  --ox-stroke:#3a2b20;
+  --ox-purple:#ff8a3d; --ox-purple-d:#c2511a; --ox-lilac:#ffc46b;
+  --ox-blue:#d63a4a; --ox-green:#8fd36a; --ox-mint:#cdeab0;
+  --ox-neg:#e8646f; --ox-mut:#9a8d7e;
+  /* channel form of the accent, the base and the rule, so the row tints and
+     the sticky header follow a theme change instead of being retyped. */
+  --ox-accent-rgb:255,138,61; --ox-black-rgb:14,10,7; --ox-stroke-rgb:58,43,32;
+  --ox-display:'Archivo',system-ui,sans-serif;
+  --ox-mono:'Geist Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  --ox-raster:'Doto','Geist Mono',monospace;
+  --ox-sat:env(safe-area-inset-top,0px); --ox-sab:env(safe-area-inset-bottom,0px);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ox-black);color:var(--ox-white);font-family:var(--ox-display);
+  font-stretch:100%;-webkit-font-smoothing:antialiased;overflow-x:hidden;min-height:100vh}
+a{color:inherit;text-decoration:none}
+.wrap{width:100%;max-width:1320px;margin:0 auto;padding:0 clamp(16px,4vw,48px)}
+
+/* header. Carries the safe-area inset itself now that nothing sits above it. */
+.head{position:sticky;top:0;z-index:50;background:rgba(var(--ox-black-rgb),.9);
+  backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);padding-top:var(--ox-sat)}
+.head-in{display:flex;align-items:center;justify-content:space-between;gap:16px;height:64px}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand svg{height:19px;width:auto;color:var(--ox-white);flex-shrink:0}
+.brand span{font:500 10px var(--ox-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--ox-lilac);white-space:nowrap}
+/* page tabs. Three pages now share this header, so it carries the nav:
+   the pill row Onyx uses in the app, with the current page filled in. */
+.tabs{display:flex;align-items:center;gap:4px;min-width:0}
+.tab{display:inline-flex;align-items:center;height:30px;padding:0 14px;border-radius:999px;
+  border:1px solid transparent;white-space:nowrap;color:var(--ox-400);
+  font:500 10px var(--ox-mono);letter-spacing:.14em;text-transform:uppercase;
+  transition:color .2s,border-color .2s,background .2s}
+.tab:hover{color:var(--ox-white);border-color:var(--ox-stroke)}
+.tab[aria-current="page"]{color:var(--ox-white);border-color:var(--ox-purple);
+  background:rgba(var(--ox-accent-rgb),.12)}
+.tab:focus-visible{outline:2px solid var(--ox-purple);outline-offset:3px}
+.tab i{display:none;font-style:normal}
+.acts{display:flex;align-items:center;gap:16px}
+.markc{display:block;width:20px;color:var(--ox-purple);transition:transform .5s cubic-bezier(.3,1.4,.5,1)}
+.markc:hover{transform:rotateY(180deg)}
+.markc svg{display:block;width:100%;height:auto}
+
+/* bracket button: [ LABEL ] */
+.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:10px;
+  min-height:44px;padding:0 26px;font:500 12px var(--ox-mono);letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ox-white);background:none;border:0;cursor:pointer;transition:color .2s,background .2s;
+  -webkit-tap-highlight-color:transparent}
+.btn::before,.btn::after{content:"";position:absolute;top:0;bottom:0;width:9px;border:1.5px solid currentColor;
+  transition:transform .25s cubic-bezier(.2,.9,.25,1),border-color .2s}
+.btn::before{left:0;border-right:0}.btn::after{right:0;border-left:0}
+.btn:hover:not(:disabled)::before{transform:translateX(-5px)}
+.btn:hover:not(:disabled)::after{transform:translateX(5px)}
+.btn:hover:not(:disabled){color:var(--ox-lilac)}
+.btn:focus-visible{outline:2px solid var(--ox-purple);outline-offset:6px}
+.btn.sm{min-height:36px;padding:0 18px;font-size:11px}
+.btn:disabled{opacity:.3;cursor:default;color:var(--ox-400)}
+
+/* eyebrow with diamond markers */
+.eyebrow{display:inline-flex;align-items:center;gap:10px;font:500 12px var(--ox-mono);
+  letter-spacing:.14em;text-transform:uppercase;color:var(--ox-purple)}
+.eyebrow::before,.eyebrow::after{content:"";width:7px;height:6px;background:currentColor;
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+
+/* marquee */
+.marq{overflow:hidden;white-space:nowrap;border-bottom:1px solid var(--ox-stroke);padding:11px 0;
+  -webkit-mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);
+  mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.marq>div{display:inline-flex;animation:marq 38s linear infinite}
+.marq span{display:inline-flex;align-items:center;gap:26px;padding-right:26px;
+  font:500 clamp(12px,1.4vw,17px) var(--ox-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ox-white)}
+.marq i{width:7px;height:6px;background:var(--ox-purple);flex-shrink:0;
+  clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%)}
+@keyframes marq{to{transform:translateX(-50%)}}
+
+/* hero */
+.hero{position:relative;overflow:hidden;padding:clamp(34px,7vw,76px) 0 0}
+/* Ambient only. At .3 it was as loud as the turkey, and two fields of orange
+   characters at the same weight read as noise rather than as a bird. */
+.hero-art{position:absolute;inset:0;width:100%;height:100%;opacity:.13;pointer-events:none}
+.hero-leaves{position:absolute;inset:0;width:100%;height:100%;opacity:1;
+  pointer-events:none;z-index:1}
+.hero-in{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:18px;
+  text-align:center;padding-bottom:clamp(26px,4vw,44px)}
+/* Sized for THANKSGIVING, twelve characters of 125%-width Archivo. The old
+   13vw was set for the three letters of THE and clipped this off both edges
+   on a phone. */
+.hero h1{margin:0;font:800 clamp(27px,8.4vw,128px)/.9 var(--ox-display);font-stretch:125%;
+  text-transform:uppercase;letter-spacing:-.018em}
+.hero h1 em{font-style:normal;color:var(--ox-purple)}
+/* GAUNTLET with a turkey either side. Sized in em so they scale with the
+   headline, and the row can shrink rather than push the word off screen. */
+.gline{display:flex;align-items:center;justify-content:center;gap:.14em;
+  max-width:100%}
+.mini-turkey{flex:0 0 auto;width:1.12em;height:1.12em;display:block;opacity:1}
+.mini-turkey.flip{transform:scaleX(-1)}
+@media(max-width:560px){.gline{gap:.08em}.mini-turkey{width:.95em;height:.95em}}
+.hero-sub{max-width:620px;font:500 clamp(11px,1.15vw,13px)/1.7 var(--ox-mono);letter-spacing:.05em;
+  text-transform:uppercase;color:var(--ox-body)}
+/* The round window. Brighter than the update stamp below it: which contest
+   this is matters more than when it was last recalculated. */
+.hero-round{margin:0 0 6px;font:600 clamp(12px,1.3vw,15px)/1.6 var(--ox-mono);
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ox-lilac)}
+
+/* stat strip */
+.stats{position:relative;z-index:2;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  border-top:1px solid var(--ox-stroke);border-bottom:1px solid var(--ox-stroke)}
+.stat{padding:18px clamp(8px,2vw,22px);text-align:center;border-left:1px solid var(--ox-stroke)}
+.stat:first-child{border-left:0}
+.stat b{display:block;font:900 clamp(22px,3.4vw,38px)/1 var(--ox-raster);color:var(--ox-white);margin-bottom:7px}
+.stat b.live{color:var(--ox-green)}
+.stat i{font:500 10px var(--ox-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ox-400);font-style:normal}
+footer{border-top:1px solid var(--ox-stroke);padding:26px 0 calc(26px + var(--ox-sab));text-align:center}
+footer p{font:500 10px/1.9 var(--ox-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ox-600)}
+
+@media (max-width:760px){
+  .brand span{display:none}
+  .acts .btn{display:none}
+  .head-in{gap:10px}
+  .tab{padding:0 11px;letter-spacing:.1em}
+  .tab b{display:none}
+  .tab i{display:inline}
+}
+@media (max-width:380px){
+  .tab{padding:0 8px;font-size:9px}
+}
+@media (max-width:460px){
+  .stat b{font-size:20px}
+}
+@media (prefers-reduced-motion:reduce){.marq>div{animation:none}}

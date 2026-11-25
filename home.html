@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0e0a07">
+<title>Onyx Odds — Thanksgiving Leaderboards</title>
+<meta name="description" content="Live Onyx leaderboards: the Mini Games Gauntlet and the Rips Rumble.">
+<link rel="stylesheet" href="site.css">
+<style>
+/* Homepage only. Everything shared with the board pages is in site.css. */
+.main{padding:clamp(26px,4vw,44px) 0 clamp(50px,8vw,90px)}
+
+/* one card per board */
+.boards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));
+  gap:clamp(14px,2vw,20px)}
+.bcard{position:relative;display:flex;flex-direction:column;overflow:hidden;
+  border:1px solid var(--ox-stroke);background:var(--ox-ink);
+  padding:clamp(22px,3vw,32px);transition:border-color .2s,transform .2s}
+a.bcard:hover{border-color:var(--ox-purple);transform:translateY(-2px)}
+/* A board with no page yet is a card, not a link. */
+div.bcard{opacity:.78}
+div.bcard .btn{color:var(--ox-600);cursor:default}
+/* The raster art sits behind the copy, cropped into the corner, so the card
+   reads as Onyx without competing with the numbers. */
+.bcard>canvas{position:absolute;right:-4%;top:-14%;width:42%;height:auto;aspect-ratio:1;
+  opacity:.17;pointer-events:none}
+.bcard>*{position:relative;z-index:1}
+
+.bflag{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;
+  border:1px solid currentColor;padding:5px 11px;margin-bottom:16px;
+  font:500 10px var(--ox-mono);letter-spacing:.16em;text-transform:uppercase}
+.bflag::before{content:"";width:6px;height:6px;background:currentColor;
+  transform:rotate(45deg);flex-shrink:0}
+.bflag.live{color:var(--ox-green)}
+.bflag.soon{color:var(--ox-lilac)}
+.bflag.done{color:var(--ox-400)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.bflag.live::before{animation:pulse 2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.bflag.live::before{animation:none}}
+
+/* Two lines' worth whether the title wraps or not, so the numbers below line
+   up across the cards instead of stepping. */
+.bcard h2{margin:0;min-height:2em;font:800 clamp(23px,3.1vw,36px)/1 var(--ox-display);
+  font-stretch:125%;letter-spacing:-.01em;text-transform:uppercase;color:var(--ox-white)}
+.bcard h2 em{font-style:normal;color:var(--ox-purple)}
+.bwhen{margin:11px 0 0;font:600 12px var(--ox-mono);letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ox-lilac)}
+.bwhat{margin:12px 0 0;min-height:calc(2 * 1.75 * 12px);
+  font:500 12px/1.75 var(--ox-mono);letter-spacing:.04em;color:var(--ox-body)}
+
+.bnums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:22px 0 24px;
+  border-top:1px solid var(--ox-stroke);border-bottom:1px solid var(--ox-stroke)}
+.bnums div{padding:15px 4px;text-align:center;border-left:1px solid var(--ox-stroke)}
+.bnums div:first-child{border-left:0;text-align:left;padding-left:0}
+.bnums div:last-child{text-align:right;padding-right:0}
+.bnums b{display:block;font:900 clamp(19px,2.5vw,26px)/1 var(--ox-raster);
+  color:var(--ox-white);margin-bottom:6px}
+.bnums i{font:500 9px var(--ox-mono);letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ox-400);font-style:normal}
+.bcard .btn{margin-top:auto;align-self:flex-start}
+
+/* the harvest row, same raster engine as the board pages */
+.harvest{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;
+  margin-top:clamp(34px,5vw,58px)}
+.harvest canvas{width:100%;height:150px;display:block}
+@media(max-width:560px){
+  .harvest{grid-template-columns:repeat(3,1fr)}
+  .harvest canvas:nth-child(n+4){display:none}
+}
+
+.note{max-width:720px;margin:clamp(34px,5vw,56px) auto 0;padding-top:28px;
+  border-top:1px solid var(--ox-stroke);text-align:center}
+.note p{margin:0;font:500 11px/1.9 var(--ox-mono);letter-spacing:.07em;color:var(--ox-400)}
+</style>
+</head>
+<body>
+
+<header class="head">
+  <div class="wrap head-in">
+    <a class="brand" href="https://app.onyxodds.com/" target="_blank" rel="noopener" aria-label="Onyx">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 218 47" aria-hidden="true"><path d="M28.344 0C4.264 0 0 4.076 0 23.472S4.263 46.85 28.344 46.85s28.25-4.03 28.25-23.378C56.595 4.122 52.426 0 28.345 0m12.134 25.018c0 8.948-2.108 11.01-10.447 11.01h-3.326c-8.433 0-10.495-2.015-10.495-11.01v-3.139c0-8.995 2.061-11.057 10.494-11.057h3.327c8.34 0 10.447 2.062 10.447 11.057zM217.667 45.866l-16.852-23.094L216.776.984h-18.459l-7.616 13.618L183.232.984h-34.294l-8.425 15.88-9.097-15.88h-31.39v30.332L84.378.983h-23.19v44.882h14.57V13.741l16.678 32.125h22.067V2.633l17.475 26.742v16.491h16.023V29.61l17.045-26.911 14.796 20.168-16.803 23h19.115l7.97-14.196 8.053 14.196z"/></svg>
+      <span>Thanksgiving</span>
+    </a>
+    <nav class="tabs">__NAV__</nav>
+    <nav class="acts">
+      <a class="markc" href="https://app.onyxodds.com/" target="_blank" rel="noopener" aria-label="Onyx">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 100 137" aria-hidden="true"><path d="m39.041 109.178 18.493 9.863-33.972 17.945L0 124.384v-84.11l39.041-20.411zm21.918-81.37-18.493-9.863L76.438 0 100 12.603v84.246L60.959 117.26z"/></svg>
+      </a>
+      <a class="btn sm" href="https://app.onyxodds.com/" target="_blank" rel="noopener">Play on Onyx</a>
+    </nav>
+  </div>
+</header>
+
+<div class="marq" aria-hidden="true"><div id="mq"></div></div>
+
+<section class="hero" data-ox-host>
+  <canvas class="hero-art" data-ox-art="field" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".6"
+          data-ox-lens="0" aria-hidden="true"></canvas>
+  <canvas class="hero-leaves" data-ox-art="none" data-ox-lens="0" data-ox-cell="9"
+          data-ox-leaves data-ox-leaf-tone="ember" aria-hidden="true"></canvas>
+  <div class="wrap hero-in">
+    <span class="eyebrow">Thanksgiving</span>
+    <h1>Onyx
+      <span class="gline">
+        <canvas class="mini-turkey" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
+                data-ox-calm=".45" data-ox-cell="6" data-ox-lens="0" aria-hidden="true"></canvas>
+        <em>Boards</em>
+        <canvas class="mini-turkey flip" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
+                data-ox-calm=".45" data-ox-cell="6" data-ox-lens="0" aria-hidden="true"></canvas>
+      </span></h1>
+    <p class="hero-round">__POOL__ Bonus Onyx Cash across __COUNT__</p>
+    <p class="hero-sub">__UPDATED__</p>
+  </div>
+</section>
+
+<main class="main">
+  <div class="wrap">
+    <div class="boards">__CARDS__</div>
+
+    <div class="harvest" aria-hidden="true">
+      <canvas data-ox-art="leaf" data-ox-tone="ember" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="acorn" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="pumpkin" data-ox-tone="ember" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="wheat" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+    </div>
+
+    <div class="note">
+      <p>Standings refresh through the round. Prizes are credited as Bonus Onyx
+         Cash within 48 hours of the completion of each tournament. Full terms
+         sit at the bottom of each board.</p>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Onyx Odds &middot; Thanksgiving Leaderboards<br>No purchase necessary. 18+. Terms apply.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var el=document.getElementById('mq');
+  if(!el)return;
+  var words=__WORDS__;
+  var run='';
+  for(var k=0;k<2;k++){
+    run+='<span>';
+    for(var i=0;i<words.length;i++)run+=words[i]+'<i></i>';
+    run+='</span>';
+  }
+  el.innerHTML=run;
+})();
+</script>
+<script src="onyx.js" defer></script>
+</body>
+</html>

@@ -1,10 +1,26 @@
 {
-  "_comment": "The current Gauntlet round. This is the only file that changes between rounds.",
-
+  "_comment": "One board. Everything that differs between the Gauntlet and the Rumble lives here.",
+  "slug": "gauntlet",
+  "out": "gauntlet/index.html",
+  "snapshot_id": 1,
+  "sql": "sql/gauntlet.sql",
+  "nav_label": "Mini Games Gauntlet",
+  "title": "Thanksgiving Gauntlet",
+  "eyebrow": "Thanksgiving",
+  "headline": [
+    "Thanksgiving",
+    "Gauntlet"
+  ],
+  "ranked_by": "Ranked By Stake",
+  "_absent_comment": "Shown when a search finds nobody. Replaced automatically when the field is larger than the board, which is then the real reason.",
+  "absent": "Players appear after their first Gauntlet round",
+  "measure": "total amount staked on Onyx Mini Games",
+  "_terms_comment": "Two sentences of the terms. 'qualifier' is dropped in after the ranking rule; the Rumble has none because it counts every purchase. 'tiebreak' names the unit of the second sort column.",
+  "qualifier": "Sweepstakes play only.",
+  "tiebreak": "rounds",
   "_window_comment": "Inclusive YYYY-MM-DD bounds, Eastern. Must match the Custom range you set on the dashboard's Leaderboard tab.",
   "start_date": "2026-11-20",
   "end_date": "2026-11-27",
-
   "_prizes_comment": "Keys are a rank ('7') or an inclusive range ('10-20'). 'pool' is a checksum: the build aborts if the ladder does not sum to it. These values mirror PRIZE_TABLE in the dashboard's frontend/utils/format.ts, so change both together.",
   "cap": 1000,
   "pool": 20000,
@@ -20,13 +36,12 @@
     "11-16": 200,
     "17-50": 100
   },
-
   "_affiliate_comment": "An affiliate is a user whose id owns a Promotion. They belong IN the standings: some of them promote the leaderboard, so excluding the whole group was wrong. Keep this false and take out individuals with 'excluded' below. On the dashboard this is the Affiliates toggle, which should be left on All.",
+  "_alias_comment": "The table alias this board's query uses for the rows being counted. Only read when exclude_affiliates is true, to aim the Promotion sub-select at the right column.",
+  "user_alias": "tpb",
   "exclude_affiliates": false,
-
   "_excluded_comment": "Individuals kept out of the standings, held as one-way digests rather than usernames because this repository is public. Generate one with: python3 build.py --exclude-key \"thehandle\" then paste the line it prints here. Matching ignores case and surrounding spaces. Everyone below an excluded player moves up a place, so this changes who is paid.",
   "excluded": [],
-
   "_final_comment": "Set true for the closing update of a round. Changes the hero line to 'Final Standings as of'.",
   "final": false
 }
