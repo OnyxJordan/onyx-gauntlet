@@ -138,15 +138,16 @@ tr.t1 .pz{background:var(--ox-purple);color:#241206}
   <!-- Leaves get their own canvas at full strength. Sharing the textured one
        meant the opacity that quietened the texture dimmed the leaves with it. -->
   <canvas class="hero-leaves" data-ox-art="none" data-ox-lens="0" data-ox-cell="9"
-          data-ox-leaves data-ox-leaf-tone="ember" aria-hidden="true"></canvas>
+          data-ox-leaves="card" data-ox-leaf-tone="amber" data-ox-rain="0.9"
+          aria-hidden="true"></canvas>
   <div class="wrap hero-in">
     <span class="eyebrow">Rips</span>
     <h1>Rips
       <span class="gline">
-        <canvas class="mini-turkey" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
+        <canvas class="mini-turkey" data-ox-art="card" data-ox-tone="amber" data-ox-fade="0"
                 data-ox-calm=".45" data-ox-cell="6" data-ox-lens="0" aria-hidden="true"></canvas>
         <em>Rumble</em>
-        <canvas class="mini-turkey flip" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
+        <canvas class="mini-turkey flip" data-ox-art="card" data-ox-tone="amber" data-ox-fade="0"
                 data-ox-calm=".45" data-ox-cell="6" data-ox-lens="0" aria-hidden="true"></canvas>
       </span></h1>
     <p class="hero-round">November 26 to 27, 2026</p>
@@ -197,13 +198,11 @@ tr.t1 .pz{background:var(--ox-purple);color:#241206}
       show places gained or lost over the last 24 hours.
     </p>
 
-    <div class="harvest" aria-hidden="true">
-      <canvas data-ox-art="leaf" data-ox-tone="ember" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
-      <canvas data-ox-art="acorn" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+    <div class="harvest" aria-hidden="true"><canvas data-ox-art="card" data-ox-tone="ember" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="card" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
       <canvas data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
-      <canvas data-ox-art="pumpkin" data-ox-tone="ember" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
-      <canvas data-ox-art="wheat" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
-    </div>
+      <canvas data-ox-art="card" data-ox-tone="cranberry" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="card" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas></div>
 
     <section class="terms">
       <h2>Tournament Terms</h2>
@@ -231,14 +230,10 @@ tr.t1 .pz{background:var(--ox-purple);color:#241206}
 
 <script>
 var ALL=[];
-var TOTAL=0;
-/* What to tell someone whose handle is not on the board. When the field
-   is bigger than the board, that is the likeliest reason, so say so
-   rather than implying they never played. */
-var CAPPED=TOTAL>ALL.length;
-var ABSENT=CAPPED
-  ? 'This board lists the top '+ALL.length.toLocaleString()+' of '+TOTAL.toLocaleString()+' players'
-  : 'Players appear after their first Rips pack';
+/* What to tell someone whose handle is not on the board. The size of the
+   board and the size of the field are both deliberately unpublished, so this
+   says neither: not how many are listed, not how many entered. */
+var ABSENT='Players appear after their first Rips pack';
 
 /* marquee */
 (function(){
@@ -345,18 +340,11 @@ function render(){
      simply absent reads as a search that returned the wrong people. */
   var raw=document.getElementById('q').value.trim();
   var absent=!!(q&&QK&&!hit.length);
-  /* CAPPED boards list only the top ranks, so "not on the board" is not the
-     same as "did not play" and must not be worded as though it were. */
   document.getElementById('show').textContent=(absent
-    ? 'No player named "'+raw+'" '+(CAPPED
-        ? 'in the top '+ALL.length.toLocaleString()
-        : 'on this round\'s board yet')
+    ? 'No player named "'+raw+'" on this round\'s board'
       +(fil.length?' · '+fil.length.toLocaleString()+' handles could match':'')
     : fil.length
-      ? 'Showing '+(st+1)+'–'+Math.min(st+ps,fil.length)+' of '+fil.length.toLocaleString()
-        +(CAPPED&&fil.length===ALL.length
-          ? ' listed · '+TOTAL.toLocaleString()+' players entered'
-          : ' players')
+      ? 'Showing '+(st+1)+'–'+Math.min(st+ps,fil.length)+' of '+fil.length.toLocaleString()+' players'
       : '0 players');
   ['r','d','u','p'].forEach(function(k){
     var el=document.getElementById('h-'+k),lb={r:'Rank',d:'Move',u:'Player',p:'Prize'};
@@ -386,12 +374,11 @@ function render(){
 }
 
 (function(){
-  /* TOTAL is everyone the query returned. ALL is capped at the ranks the
-     page lists, so counting it would understate a big field.
+  /* The ranks on the board, which is all this page ever says about size.
      The pool and the places come from the ladder at build time, not from the
      rows: counting awarded rows reads 0 on a board whose round has not opened,
      and understates any field smaller than the ladder. */
-  document.getElementById('sPlayers').textContent=TOTAL.toLocaleString();
+  document.getElementById('sPlayers').textContent=ALL.length.toLocaleString();
   document.getElementById('sPool').textContent='10,000';
   document.getElementById('sPaid').textContent='20';
 })();
