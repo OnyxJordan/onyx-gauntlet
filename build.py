@@ -980,9 +980,15 @@ def main(argv=None):
             # matters most. The board that failed is left as it last was.
             if len(slugs) == 1:
                 raise
-            print(f"{slug}: NOT published: {why!s} ({type(why).__name__})",
-                  file=sys.stderr)
-            failed.append(slug)
+            # A board whose round has not opened has nothing to publish, so
+            # that is normal and must not read as a fault: it would cry wolf on
+            # every run until the round starts, and a warning nobody acts on is
+            # a warning nobody reads when it matters.
+            waiting = not_open_yet(slug)
+            print(f"{slug}: {'nothing to publish yet' if waiting else 'NOT published'}: "
+                  f"{why!s} ({type(why).__name__})", file=sys.stderr)
+            if not waiting:
+                failed.append(slug)
             if args.out is None:
                 try:
                     placeholder_board(load_board(slug))
@@ -1007,6 +1013,16 @@ def main(argv=None):
         print(f"::warning::built {len(built)}, could not build "
               f"{', '.join(failed)}", file=sys.stderr)
     return 0
+
+
+def not_open_yet(slug):
+    """True when this board's round starts in the future, so having no
+    standings is expected rather than broken."""
+    try:
+        start = datetime.date.fromisoformat(load_board(slug)["start_date"])
+    except Exception:                              # noqa: BLE001
+        return False
+    return datetime.datetime.now(EASTERN).date() < start
 
 
 def build_board(slug, args):
