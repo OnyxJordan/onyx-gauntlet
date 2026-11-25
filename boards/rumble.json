@@ -25,7 +25,7 @@
   "end_date": "2026-11-27",
 
   "_prizes_comment": "The original Gauntlet ladder: 10,000 across 20 places. 'pool' is a checksum and the build aborts if the ladder does not sum to it.",
-  "_cap_comment": "How many ranks the page lists, and so how many it can search. Jordan, 2026-11-25: keep it at 1000 so the page stays quick. The Rips field is about 6,600, so ranks past 1000 are off the board and cannot be searched for; raising this to 10000 was measured at 440 KB, 84 KB over the wire, if that trade is ever wanted.",
+  "_cap_comment": "How many ranks the page lists, and so how many it can search. HARD CAP. Jordan, 2026-11-25: \"I don't want more than 1000 it's a hard cap I don't want the public to know exactly how many enter\". So nothing on the page may count or imply the size of the field: the Players tile shows the ranks listed, not the entrants, and the query must never carry a total back. Ranks past 1000 are off the board and cannot be searched for; that is the accepted trade.",
   "cap": 1000,
   "pool": 10000,
   "prizes": {

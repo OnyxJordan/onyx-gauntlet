@@ -243,24 +243,6 @@ def unwrap(payload):
     return []
 
 
-def take(cfg, rows):
-    """Read a board's standings rows: the ordered usernames, and how many
-    players qualified in total.
-
-    The query is limited to the ranks the page lists, so len(rows) is the cap,
-    not the field. Each row carries `field`, a COUNT(*) OVER () computed before
-    that limit, which is the real number. A payload parked before that column
-    existed has no `field`, and then the row count is the best available
-    answer and also the old behaviour."""
-    for row in rows:
-        if isinstance(row, dict) and str(row.get("field", "")).strip().isdigit():
-            cfg["_field"] = int(row["field"])
-            break
-    else:
-        cfg.pop("_field", None)
-    return usernames(rows)
-
-
 def usernames(rows):
     """Pull the username out of standings rows, preserving the query's order."""
     out = []
@@ -344,7 +326,7 @@ def from_retool_db(cfg):
         raise Skip("the parked payload is empty")
     print(f"read {len(rows)} rows straight from retool_db, no workflow run spent",
           file=sys.stderr)
-    return take(cfg, rows)
+    return usernames(rows)
 
 
 # The webhook answer, kept for the rest of the run. One call returns every
@@ -409,7 +391,7 @@ def from_retool(cfg, timeout=600):
         rows = unwrap(payload)
         if not rows:
             raise SystemExit(f"the parked payload for {cfg['slug']} is empty")
-        return take(cfg, rows)
+        return usernames(rows)
     url = os.environ.get("RETOOL_WEBHOOK_URL", "").strip()
     key = os.environ.get("RETOOL_WORKFLOW_KEY", "").strip()
     if not url:
@@ -462,7 +444,7 @@ def from_retool(cfg, timeout=600):
                     "Add a Response block returning code1's data, then publish.")
         raise SystemExit("Retool webhook returned no standings rows. "
                          f"It returned:\n{json.dumps(payload)[:300]}{hint}")
-    return take(cfg, rows)
+    return usernames(rows)
 
 
 # --------------------------------------------------------------------------
@@ -734,8 +716,7 @@ def report(names):
 
 def render(names, cfg, when, deltas=None, template=TEMPLATE, stamp=None):
     table = cfg["prize_table"]
-    # The field, not the page. See take(): the query stops at the cap.
-    total = max(cfg.get("_field") or 0, len(names))
+    cap = int(cfg.get("cap", 1000))
     shown = names[: int(cfg.get("cap", 1000))]
     deltas = deltas or [None] * len(shown)
     rows = [
@@ -774,7 +755,7 @@ def render(names, cfg, when, deltas=None, template=TEMPLATE, stamp=None):
                                # places or a different pool than the page pays.
                                ("__PLACES__", str(paid)),
                                ("__POOL__", f"{sum(table):,}"),
-                               ("__PLAYERS__", str(total)),
+                               ("__CAP__", str(cap)),
                                ("__ABSENT__", cfg.get("absent",
                                    "Players appear after their first round")),
                                ("__DATA__", data)):
@@ -784,7 +765,7 @@ def render(names, cfg, when, deltas=None, template=TEMPLATE, stamp=None):
 
     if re.search(r"var ALL=.*?[\"']u[\"']:\s*[\"'][^\"'*]{3,}[\"']", html):
         raise SystemExit("refusing to write: an unmasked handle reached the page data")
-    return html, rows, total
+    return html, rows
 
 
 # --------------------------------------------------------------------------
@@ -811,7 +792,7 @@ def board_card(cfg, stats, up=""):
     head = cfg.get("headline") or [cfg.get("title", ""), ""]
     table = cfg["prize_table"]
     paid = stats["paid"] if stats else sum(1 for v in table if v > 0)
-    players = f"{stats['total']:,}" if stats else "&mdash;"
+    players = f"{len(stats['rows']):,}" if stats else "&mdash;"
     folder = Path(cfg["out"]).parent
     art = "turkey" if cfg["slug"] == "gauntlet" else "pumpkin"
     # Only link to a board that has a page. Before a round opens there are no
@@ -854,7 +835,7 @@ def placeholder_board(cfg):
         return False
     start = datetime.date.fromisoformat(cfg["start_date"])
     stamp = f"Standings open {start.strftime('%B')} {start.day}, {start.year}"
-    html, _rows, _total = render([], cfg, datetime.datetime.now(EASTERN), stamp=stamp)
+    html, _rows = render([], cfg, datetime.datetime.now(EASTERN), stamp=stamp)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html)
     print(f"{cfg['slug']}: wrote {out} as a pre-round page, 0 players",
@@ -1040,7 +1021,7 @@ def build_board(slug, args):
         path = Path(str(args.json_file).replace("{board}", slug))
         payload = json.loads(path.read_text())
         capture_as_of(cfg, payload)
-        names = take(cfg, unwrap(payload))
+        names = usernames(unwrap(payload))
     elif args.source == "retool":
         names = from_retool(cfg)
     else:
@@ -1065,8 +1046,6 @@ def build_board(slug, args):
         # a place and changes who is paid, so it belongs in the run log.
         print(f"{slug}: excluded {dropped} named "
               f"{'player' if dropped == 1 else 'players'}", file=sys.stderr)
-        if cfg.get("_field"):
-            cfg["_field"] -= dropped
     report(names)
     if not names:
         raise SystemExit("no usable standings; aborting before write so the live page stands.")
@@ -1098,7 +1077,7 @@ def build_board(slug, args):
     # standings shows the same arrows rather than flattening them.
     baseline = pick_baseline(state["history"], data_as_of)
     deltas = movement(names, baseline)
-    html, rows, total = render(names, cfg, when, deltas)
+    html, rows = render(names, cfg, when, deltas)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html)
 
@@ -1124,7 +1103,7 @@ def build_board(slug, args):
     paid = sum(1 for r in rows if r["p"] > 0)
     print(f"{slug}: wrote {out}: {len(rows)} players, {paid} paid places, "
           f"{sum(r['p'] for r in rows):,} awarded", file=sys.stderr)
-    return {"cfg": cfg, "rows": rows, "when": when, "paid": paid, "total": total}
+    return {"cfg": cfg, "rows": rows, "when": when, "paid": paid}
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@
   "start_date": "2026-11-20",
   "end_date": "2026-11-27",
   "_prizes_comment": "Keys are a rank ('7') or an inclusive range ('10-20'). 'pool' is a checksum: the build aborts if the ladder does not sum to it. These values mirror PRIZE_TABLE in the dashboard's frontend/utils/format.ts, so change both together.",
+  "_cap_comment": "How many ranks the page lists. HARD CAP, same rule as the Rumble: the entry count is not published, so the Players tile is the ranks listed and nothing computes the field.",
   "cap": 1000,
   "pool": 20000,
   "prizes": {

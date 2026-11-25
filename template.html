@@ -229,13 +229,16 @@ tr.t1 .pz{background:var(--ox-purple);color:#241206}
 
 <script>
 var ALL=__DATA__;
-var TOTAL=__PLAYERS__;
-/* What to tell someone whose handle is not on the board. When the field
-   is bigger than the board, that is the likeliest reason, so say so
-   rather than implying they never played. */
-var CAPPED=TOTAL>ALL.length;
+/* The board is a hard top-__CAP__. How many entered is deliberately not
+   published, here or anywhere else on the page, so nothing counts the field:
+   CAPPED is read off the list being full, never off an entry count. */
+var CAP=__CAP__;
+var CAPPED=ALL.length>=CAP;
+/* What to tell someone whose handle is not on the board. On a full board the
+   likeliest reason is that they are below it, so say that rather than imply
+   they never played. */
 var ABSENT=CAPPED
-  ? 'This board lists the top '+ALL.length.toLocaleString()+' of '+TOTAL.toLocaleString()+' players'
+  ? 'This board lists the top '+CAP.toLocaleString()+' players'
   : '__ABSENT__';
 
 /* marquee */
@@ -351,10 +354,7 @@ function render(){
         : 'on this round\'s board yet')
       +(fil.length?' · '+fil.length.toLocaleString()+' handles could match':'')
     : fil.length
-      ? 'Showing '+(st+1)+'–'+Math.min(st+ps,fil.length)+' of '+fil.length.toLocaleString()
-        +(CAPPED&&fil.length===ALL.length
-          ? ' listed · '+TOTAL.toLocaleString()+' players entered'
-          : ' players')
+      ? 'Showing '+(st+1)+'–'+Math.min(st+ps,fil.length)+' of '+fil.length.toLocaleString()+' players'
       : '0 players');
   ['r','d','u','p'].forEach(function(k){
     var el=document.getElementById('h-'+k),lb={r:'Rank',d:'Move',u:'Player',p:'Prize'};
@@ -384,12 +384,11 @@ function render(){
 }
 
 (function(){
-  /* TOTAL is everyone the query returned. ALL is capped at the ranks the
-     page lists, so counting it would understate a big field.
+  /* The ranks on the board, which is all this page ever says about size.
      The pool and the places come from the ladder at build time, not from the
      rows: counting awarded rows reads 0 on a board whose round has not opened,
      and understates any field smaller than the ladder. */
-  document.getElementById('sPlayers').textContent=TOTAL.toLocaleString();
+  document.getElementById('sPlayers').textContent=ALL.length.toLocaleString();
   document.getElementById('sPool').textContent='__POOL__';
   document.getElementById('sPaid').textContent='__PLACES__';
 })();
