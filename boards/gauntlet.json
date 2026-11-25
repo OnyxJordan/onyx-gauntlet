@@ -12,6 +12,16 @@
     "Gauntlet"
   ],
   "ranked_by": "Ranked By Stake",
+
+  "_art_comment": "The raster art. 'fall' is the shape that drifts past the headline, 'rain' how many a second arrive from above on their own (0 = only the pointer sheds them), 'crest' the pair flanking the headline, 'row' the strip above the terms as [shape, tone] pairs.",
+  "art": {
+    "fall": "leaf",
+    "fall_tone": "ember",
+    "rain": 0,
+    "crest": "turkey",
+    "row": [["leaf", "ember"], ["acorn", "wheat"], ["turkey", "amber"], ["pumpkin", "ember"], ["wheat", "wheat"]]
+  },
+
   "_absent_comment": "Shown when a search finds nobody. Replaced automatically when the field is larger than the board, which is then the real reason.",
   "absent": "Players appear after their first Gauntlet round",
   "measure": "total amount staked on Onyx Mini Games",

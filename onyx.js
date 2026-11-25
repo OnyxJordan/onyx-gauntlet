@@ -43,6 +43,9 @@
     c.lineCap = 'round'; c.lineJoin = 'round';
     draw(c); c.restore();
   }
+  function knock(c, fn) {       // erase a filled region from the shape
+    c.save(); c.globalCompositeOperation = 'destination-out'; c.beginPath(); fn(c); c.fill(); c.restore();
+  }
   function cut(c, fn, lw) {     // erase strokes from the shape (seams, laces)
     c.save(); c.globalCompositeOperation = 'destination-out'; c.lineWidth = lw; c.beginPath(); fn(c); c.stroke(); c.restore();
   }
@@ -226,6 +229,31 @@
         }, 0.05);
       });
     },
+    // A trading card, for the Rips board: the thing the product is about.
+    //
+    // It fills the mask square edge to edge and the particle gives it its
+    // portrait shape, because a card drawn small inside the square came out
+    // nearly square once sampled. And it is a plate with one frame line and
+    // nothing else: an emblem and a text bar both looked right at 56 pixels
+    // and then ate half the card at the dozen cells it actually falls at.
+    card: function (c) {
+      var w = c.canvas.width, h = c.canvas.height;
+      var px = w * 0.05, py = h * 0.02, r = w * 0.06;
+      function plate(c, x0, y0, x1, y1, r) {
+        c.moveTo(x0 + r, y0);
+        c.lineTo(x1 - r, y0); c.quadraticCurveTo(x1, y0, x1, y0 + r);
+        c.lineTo(x1, y1 - r); c.quadraticCurveTo(x1, y1, x1 - r, y1);
+        c.lineTo(x0 + r, y1); c.quadraticCurveTo(x0, y1, x0, y1 - r);
+        c.lineTo(x0, y0 + r); c.quadraticCurveTo(x0, y0, x0 + r, y0);
+        c.closePath();
+      }
+      c.beginPath(); plate(c, px, py, w - px, h - py, r); c.fill();
+      // The frame has to be about one cell wide at the size it falls at, or
+      // it lands between two cells and is not drawn at all.
+      cut(c, function (c) {
+        plate(c, w * 0.21, h * 0.17, w * 0.79, h * 0.83, r * 0.7);
+      }, w * 0.055);
+    },
     acorn: function (c) {
       ball(c, function (c) {
         c.beginPath(); c.moveTo(-0.66, -0.16);
@@ -269,19 +297,20 @@
     }
   };
 
-  // The falling leaves draw the real leaf silhouette. Rasterised once into an
-  // alpha grid here, then every particle samples it with its own rotation and
-  // size, so a leaf on the wind is the same shape as the one in the harvest
-  // row rather than a lookalike.
-  var LEAFN = 56, LEAFMASK = null;
-  function leafMask() {
-    if (LEAFMASK) return LEAFMASK;
+  // Falling particles draw a real silhouette from SHAPES, rasterised once into
+  // an alpha grid here, then sampled per particle with its own rotation and
+  // size. So a leaf on the wind is the same shape as the one in the harvest
+  // row rather than a lookalike, and a board can fall something else entirely
+  // by naming it: data-ox-leaves="card".
+  var LEAFN = 56, FALLMASKS = {};
+  function fallMask(name) {
+    if (FALLMASKS[name]) return FALLMASKS[name];
     var c = document.createElement('canvas'); c.width = c.height = LEAFN;
     var g = c.getContext('2d'); g.fillStyle = '#fff'; g.strokeStyle = '#fff';
-    SHAPES.leaf(g);
+    (SHAPES[name] || SHAPES.leaf)(g);
     var d = g.getImageData(0, 0, LEAFN, LEAFN).data, a = new Float32Array(LEAFN * LEAFN);
     for (var i = 0; i < a.length; i++) a[i] = d[i * 4 + 3] / 255;
-    LEAFMASK = a; return a;
+    FALLMASKS[name] = a; return a;
   }
 
   // ── the renderer ───────────────────────────────────────────────
@@ -303,8 +332,16 @@
     // They keep falling after the pointer has gone, which is the whole charm
     // of it, so the frame loop stays awake while any are still in the air.
     this.leaves = []; this.leavesOn = cv.dataset.oxLeaves !== undefined;
+    // data-ox-leaves="card" falls cards instead; bare or empty keeps leaves.
+    this.fallShape = cv.dataset.oxLeaves || 'leaf';
+    // Flat things keep their face to the viewer and rock; only a leaf tumbles.
+    this.flat = this.fallShape === 'card';
     this.leafTone = TONES[cv.dataset.oxLeafTone] || TONES.ember;
-    this.lastSpawn = 0;
+    // data-ox-rain="1.6": that many a second drift in from above the canvas
+    // whether or not anyone is pointing at it, so the page rains on its own
+    // and the pointer trail is an extra rather than the only way to see any.
+    this.rain = +cv.dataset.oxRain || 0;
+    this.lastSpawn = 0; this.lastRain = 0;
     this.resize();
     var self = this;
     var move = function (e) {
@@ -362,20 +399,44 @@
   };
   // One leaf, dropped at the pointer. Everything is in grid cells per second,
   // so a leaf falls at the same apparent speed whatever the cell size.
-  Art.prototype.shed = function (x, y) {
-    if (this.leaves.length > 46) return;    // big leaves, so fewer of them
+  Art.prototype.shed = function (x, y, drifting) {
+    // Particle size is in grid cells, and a phone has a third of the columns a
+    // desktop does, so a card sized for the desktop hero covered a quarter of
+    // the phone one. Scale the size and the count with the width of the grid.
+    var k = this.flat ? Math.max(0.45, Math.min(1, this.cols / 150)) : 1;
+    if (this.leaves.length > (this.flat ? Math.max(4, Math.round(9 * k)) : 46)) return;
     var r = Math.random;
     this.leaves.push({
       x: x + (r() - 0.5) * 2.2, y: y + (r() - 0.5) * 1.3,
-      r: 7.2 + r() * 4.6,                  // in cells; big enough to read as a leaf
-      rot: r() * 6.283, spin: (r() - 0.5) * 3.4,
-      // thrown along the swipe, then it bleeds off and the leaf falls
-      vx: (this.pvx || 0) * 0.3 + (r() - 0.5) * 3,
-      vy: (this.pvy || 0) * 0.22 + (r() - 0.5) * 2,
+      // In cells. A card needs more than a leaf: it is read by its straight
+      // edges and its frame, and both need several cells each to exist.
+      r: this.flat ? (6.6 + r() * 2.6) * k : 7.2 + r() * 4.6,
+      // A card barely turns. Even a slow spin walks it to 90 degrees over a
+      // ten second fall, and on its edge it is a stick, not a card.
+      rot: this.flat ? (r() - 0.5) * 0.36 : r() * 6.283,
+      spin: (r() - 0.5) * (this.flat ? 0.1 : 3.4),
+      // thrown along the swipe, then it bleeds off and it falls. One that
+      // drifted in from above was never thrown, so it starts on the fall.
+      vx: drifting ? (r() - 0.5) * 2.2 : (this.pvx || 0) * 0.3 + (r() - 0.5) * 3,
+      vy: drifting ? 1.4 + r() * 1.6 : (this.pvy || 0) * 0.22 + (r() - 0.5) * 2,
       term: 2.6 + r() * 3.6,                // the speed it settles to falling at
       swayA: 1.4 + r() * 3, swayF: 0.8 + r() * 1.5, ph: r() * 6.283,
-      age: 0, life: 4.2 + r() * 3.4
+      // long enough to cross the hero rather than fade out halfway down it
+      age: 0, life: drifting ? (this.flat ? 6.5 + r() * 3 : 9 + r() * 5)
+                              : 4.2 + r() * 3.4
     });
+  };
+  // Drop whatever is due from above the top edge. Called each frame; the rate
+  // is per second, so it does not change with the frame rate or the cell size.
+  Art.prototype.pour = function (now) {
+    if (!this.rain || REDUCED || !this.cols) return;
+    if (!this.lastRain) { this.lastRain = now; return; }
+    var due = (now - this.lastRain) / 1000 * this.rain;
+    if (due < 1) return;
+    this.lastRain = now;
+    for (var i = 0; i < Math.min(3, Math.floor(due)); i++) {
+      this.shed(Math.random() * this.cols, -9, true);
+    }
   };
   Art.prototype.at = function (x, y) {
     var xi = Math.round(x * 2), yi = Math.round(y * 2);
@@ -452,9 +513,10 @@
         // The leaf itself, sampled from the real maple silhouette rather than
         // approximated. A lobed blob never read as a leaf at any size; this is
         // the same shape the harvest row draws, rotated per particle.
-        var LM = leafMask(), LN = LEAFN;
+        var LM = fallMask(this.fallShape), LN = LEAFN;
         var cs = Math.cos(lf.rot), sn = Math.sin(lf.rot);
-        var rx = lf.r, ry = lf.r;
+        // A card is taller than it is wide; a leaf is drawn in a square.
+        var rx = this.flat ? lf.r * 0.72 : lf.r, ry = lf.r;
         var x0 = Math.max(0, Math.floor(lf.x - rx - 1)), x1 = Math.min(cols - 1, Math.ceil(lf.x + rx + 1));
         var y0 = Math.max(0, Math.floor(lf.y - ry / 1.6 - 1)), y1 = Math.min(rows - 1, Math.ceil(lf.y + ry / 1.6 + 1));
         for (var ly = y0; ly <= y1; ly++) {
@@ -469,8 +531,12 @@
             if (m < 0.25) continue;
             var lv = m * la;
             if (lv < 0.08) continue;
-            // same brightness floor the shape pass uses, or leaves read as dirt
-            lb[Math.min(7, Math.floor((0.34 + 0.66 * lv) * 8))]
+            // Same brightness floor the shape pass uses, or they read as dirt.
+            // Flat shapes get a higher one: a card is a big solid area, so at
+            // the leaf's floor it sat at the same value as the texture behind
+            // it and disappeared into it.
+            var floor = this.flat ? 0.4 : 0.34;
+            lb[Math.min(7, Math.floor((floor + (1 - floor) * lv) * 8))]
               .push(RAMP.charAt(1 + Math.floor(lv * (L - 1))), lx, ly);
           }
         }
@@ -508,9 +574,11 @@
     arts.forEach(function (a) {
       if (!a.visible) return;
       any = true;
-      // leaves still in the air keep their canvas on the full frame clock, so
-      // they do not stutter at the idle 20fps once the pointer has gone
-      if (a.hot || a.leaves.length || idle) a.draw(now);
+      // anything still in the air keeps its canvas on the full frame clock, so
+      // it does not stutter at the idle 20fps once the pointer has gone. A
+      // canvas that rains always has something coming, so it never idles.
+      a.pour(now);
+      if (a.hot || a.leaves.length || a.rain || idle) a.draw(now);
     });
     if (any) loop();
   }

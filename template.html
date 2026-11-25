@@ -136,15 +136,16 @@ tr.t1 .pz{background:var(--ox-purple);color:#241206}
   <!-- Leaves get their own canvas at full strength. Sharing the textured one
        meant the opacity that quietened the texture dimmed the leaves with it. -->
   <canvas class="hero-leaves" data-ox-art="none" data-ox-lens="0" data-ox-cell="9"
-          data-ox-leaves data-ox-leaf-tone="ember" aria-hidden="true"></canvas>
+          data-ox-leaves="__FALL__" data-ox-leaf-tone="__FALL_TONE__" data-ox-rain="__RAIN__"
+          aria-hidden="true"></canvas>
   <div class="wrap hero-in">
     <span class="eyebrow">__EYEBROW__</span>
     <h1>__H1A__
       <span class="gline">
-        <canvas class="mini-turkey" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
+        <canvas class="mini-turkey" data-ox-art="__CREST__" data-ox-tone="amber" data-ox-fade="0"
                 data-ox-calm=".45" data-ox-cell="6" data-ox-lens="0" aria-hidden="true"></canvas>
         <em>__H1B__</em>
-        <canvas class="mini-turkey flip" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
+        <canvas class="mini-turkey flip" data-ox-art="__CREST__" data-ox-tone="amber" data-ox-fade="0"
                 data-ox-calm=".45" data-ox-cell="6" data-ox-lens="0" aria-hidden="true"></canvas>
       </span></h1>
     <p class="hero-round">__ROUND__</p>
@@ -195,13 +196,7 @@ tr.t1 .pz{background:var(--ox-purple);color:#241206}
       show places gained or lost over the last 24 hours.
     </p>
 
-    <div class="harvest" aria-hidden="true">
-      <canvas data-ox-art="leaf" data-ox-tone="ember" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
-      <canvas data-ox-art="acorn" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
-      <canvas data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
-      <canvas data-ox-art="pumpkin" data-ox-tone="ember" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
-      <canvas data-ox-art="wheat" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
-    </div>
+    <div class="harvest" aria-hidden="true">__HARVEST__</div>
 
     <section class="terms">
       <h2>Tournament Terms</h2>
@@ -229,17 +224,10 @@ tr.t1 .pz{background:var(--ox-purple);color:#241206}
 
 <script>
 var ALL=__DATA__;
-/* The board is a hard top-__CAP__. How many entered is deliberately not
-   published, here or anywhere else on the page, so nothing counts the field:
-   CAPPED is read off the list being full, never off an entry count. */
-var CAP=__CAP__;
-var CAPPED=ALL.length>=CAP;
-/* What to tell someone whose handle is not on the board. On a full board the
-   likeliest reason is that they are below it, so say that rather than imply
-   they never played. */
-var ABSENT=CAPPED
-  ? 'This board lists the top '+CAP.toLocaleString()+' players'
-  : '__ABSENT__';
+/* What to tell someone whose handle is not on the board. The size of the
+   board and the size of the field are both deliberately unpublished, so this
+   says neither: not how many are listed, not how many entered. */
+var ABSENT='__ABSENT__';
 
 /* marquee */
 (function(){
@@ -346,12 +334,8 @@ function render(){
      simply absent reads as a search that returned the wrong people. */
   var raw=document.getElementById('q').value.trim();
   var absent=!!(q&&QK&&!hit.length);
-  /* CAPPED boards list only the top ranks, so "not on the board" is not the
-     same as "did not play" and must not be worded as though it were. */
   document.getElementById('show').textContent=(absent
-    ? 'No player named "'+raw+'" '+(CAPPED
-        ? 'in the top '+ALL.length.toLocaleString()
-        : 'on this round\'s board yet')
+    ? 'No player named "'+raw+'" on this round\'s board'
       +(fil.length?' · '+fil.length.toLocaleString()+' handles could match':'')
     : fil.length
       ? 'Showing '+(st+1)+'–'+Math.min(st+ps,fil.length)+' of '+fil.length.toLocaleString()+' players'

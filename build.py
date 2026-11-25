@@ -714,9 +714,17 @@ def report(names):
                 print(f"    rank {hit[0]}: {hit[1]}", file=sys.stderr)
 
 
+def art_row(shapes):
+    """The row of raster art above the terms. One canvas per named shape."""
+    return "\n      ".join(
+        f'<canvas data-ox-art="{name}" data-ox-tone="{tone}" data-ox-fade="0" '
+        f'data-ox-calm=".5" data-ox-cell="6"></canvas>'
+        for name, tone in shapes
+    )
+
+
 def render(names, cfg, when, deltas=None, template=TEMPLATE, stamp=None):
     table = cfg["prize_table"]
-    cap = int(cfg.get("cap", 1000))
     shown = names[: int(cfg.get("cap", 1000))]
     deltas = deltas or [None] * len(shown)
     rows = [
@@ -731,6 +739,7 @@ def render(names, cfg, when, deltas=None, template=TEMPLATE, stamp=None):
     paid = sum(1 for p in table if p > 0)
     head = cfg.get("headline") or [cfg.get("title", ""), ""]
     qualifier = (cfg.get("qualifier") or "").strip()
+    art = cfg.get("art") or {}
     html = template.read_text()
     for placeholder, value in (("__UPDATED__",
                                 stamp or updated_line(when, cfg.get("final", False))),
@@ -746,6 +755,19 @@ def render(names, cfg, when, deltas=None, template=TEMPLATE, stamp=None):
                                ("__SWEEPS__", f" {qualifier}" if qualifier else ""),
                                ("__UNIT__", cfg.get("tiebreak", "rounds")),
                                ("__NAV__", nav_html(cfg)),
+                               # The art. Each board falls its own thing past
+                               # the headline and shows its own row above the
+                               # terms, so two boards in one round still read
+                               # as two different contests.
+                               ("__FALL__", art.get("fall", "leaf")),
+                               ("__FALL_TONE__", art.get("fall_tone", "ember")),
+                               ("__RAIN__", str(art.get("rain", 0))),
+                               ("__CREST__", art.get("crest", "turkey")),
+                               ("__HARVEST__", art_row(
+                                   [tuple(s) for s in art.get("row", [])]
+                                   or [("leaf", "ember"), ("acorn", "wheat"),
+                                       ("turkey", "amber"), ("pumpkin", "ember"),
+                                       ("wheat", "wheat")])),
                                # Board pages sit one directory down, so
                                # the shared assets are reached relatively.
                                ("__UP__", here(cfg)),
@@ -755,7 +777,6 @@ def render(names, cfg, when, deltas=None, template=TEMPLATE, stamp=None):
                                # places or a different pool than the page pays.
                                ("__PLACES__", str(paid)),
                                ("__POOL__", f"{sum(table):,}"),
-                               ("__CAP__", str(cap)),
                                ("__ABSENT__", cfg.get("absent",
                                    "Players appear after their first round")),
                                ("__DATA__", data)):
