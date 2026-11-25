@@ -849,10 +849,16 @@ def placeholder_board(cfg):
     the prize ladder and the terms are all known from the board file alone, so
     the URL works from the moment the board is announced.
 
-    Only ever called when the page does not already exist. It must never
-    overwrite standings."""
+    Rewritten on every run until the round opens, so a change to the template
+    or to the board's art reaches it like it reaches every other page. It would
+    otherwise be frozen at whatever the site looked like the day the board was
+    announced.
+
+    After the round opens this does nothing unless the page is missing
+    entirely, because by then the page may hold real standings and those are
+    never overwritten with an empty board."""
     out = board_out(cfg)
-    if out.exists():
+    if out.exists() and not not_open_yet(cfg["slug"]):
         return False
     start = datetime.date.fromisoformat(cfg["start_date"])
     stamp = f"Standings open {start.strftime('%B')} {start.day}, {start.year}"
