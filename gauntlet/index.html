@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0e0a07">
+<title>Onyx Odds — Thanksgiving Gauntlet</title>
+<meta name="description" content="Live standings for the Onyx Thanksgiving Gauntlet.">
+<link rel="stylesheet" href="../site.css">
+<style>
+/* Leaderboard page only. Everything shared with the homepage is in
+   site.css, linked above. */
+/* controls */
+.main{padding:clamp(26px,4vw,44px) 0 clamp(50px,8vw,90px)}
+.ctl{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+.srch{flex:1;min-width:210px;position:relative}
+.srch svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);opacity:.45;pointer-events:none}
+input[type=text],select{background:var(--ox-ink);border:1px solid var(--ox-stroke);color:var(--ox-white);
+  font:500 12px var(--ox-mono);letter-spacing:.05em;text-transform:uppercase;padding:13px 14px;
+  outline:none;transition:border-color .2s;border-radius:0;-webkit-appearance:none;appearance:none}
+input[type=text]{width:100%;padding-left:42px}
+input[type=text]::placeholder{color:var(--ox-600);text-transform:uppercase}
+input[type=text]:focus,select:focus{border-color:var(--ox-purple)}
+select{cursor:pointer;padding-right:34px;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ox-400) 50%),linear-gradient(135deg,var(--ox-400) 50%,transparent 50%);
+  background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+.showing{font:500 11px var(--ox-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ox-400);margin-bottom:12px}
+
+/* board */
+.board{border:1px solid var(--ox-stroke);background:var(--ox-ink)}
+table{width:100%;border-collapse:collapse}
+thead th{padding:13px 16px;text-align:left;font:500 10px var(--ox-mono);letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ox-400);border-bottom:1px solid var(--ox-stroke);
+  cursor:pointer;white-space:nowrap;user-select:none;transition:color .15s}
+thead th:hover{color:var(--ox-white)}
+thead th.on{color:var(--ox-purple)}
+thead th.prize,td.prize{text-align:right}
+tbody tr{border-bottom:1px solid rgba(var(--ox-stroke-rgb),.55);transition:background .12s}
+tbody tr:last-child{border-bottom:0}
+tbody tr:hover{background:rgba(var(--ox-accent-rgb),.06)}
+tbody tr.t1{background:rgba(var(--ox-accent-rgb),.11)}
+tbody tr.t2{background:rgba(var(--ox-accent-rgb),.07)}
+tbody tr.t3{background:rgba(var(--ox-accent-rgb),.045)}
+td{padding:13px 16px;vertical-align:middle}
+.rk{font:900 20px/1 var(--ox-raster);color:var(--ox-200);min-width:30px;display:inline-block}
+tr.t1 .rk,tr.t2 .rk,tr.t3 .rk{color:var(--ox-purple);font-size:24px}
+.who{font:500 13px var(--ox-mono);letter-spacing:.06em;color:var(--ox-white)}
+.pz{display:inline-block;border:1px solid var(--ox-purple);color:var(--ox-lilac);
+  font:500 11px var(--ox-mono);letter-spacing:.06em;padding:4px 11px;border-radius:999px}
+tr.t1 .pz{background:var(--ox-purple);color:#241206}
+.pz0{color:var(--ox-600);font:500 12px var(--ox-mono)}
+
+/* movement since the previous update */
+.mv{white-space:nowrap;font:500 12px var(--ox-mono);letter-spacing:.04em;min-width:58px;display:inline-block}
+.mv.up{color:var(--ox-green)}
+.mv.dn{color:var(--ox-neg)}
+.mv.sm{color:var(--ox-mut)}
+.mv.nw{color:var(--ox-purple)}
+.mv s{text-decoration:none;font-size:10px;margin-right:3px}
+
+.empty{padding:56px 16px;text-align:center}
+.empty b{display:block;font:800 18px var(--ox-display);font-stretch:125%;text-transform:uppercase;color:var(--ox-200);margin-bottom:8px}
+.empty i{font:500 12px var(--ox-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ox-400);font-style:normal}
+
+/* harvest row: the same raster art as the hero, small, above the terms */
+.harvest{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;
+  max-width:880px;margin:52px auto 0}
+.harvest canvas{width:100%;height:164px;display:block}
+/* Three on a phone, larger, rather than five illegible ones. */
+@media(max-width:560px){
+  .harvest{grid-template-columns:repeat(3,1fr);gap:8px;max-width:360px}
+  .harvest canvas{height:108px}
+  .harvest canvas:nth-child(n+4){display:none}
+}
+
+/* tournament terms */
+.terms{max-width:720px;margin:56px auto 0;padding-top:30px;
+  border-top:1px solid var(--ox-stroke)}
+.terms h2{margin:0 0 18px;font:800 clamp(18px,2.4vw,26px)/1.1 var(--ox-display);
+  font-stretch:125%;letter-spacing:.01em;text-transform:uppercase;color:var(--ox-white)}
+.terms ul{margin:0;padding:0;list-style:none}
+.terms li{position:relative;padding:0 0 11px 18px;
+  font:500 12px/1.85 var(--ox-mono);letter-spacing:.03em;color:var(--ox-body)}
+.terms li::before{content:"";position:absolute;left:0;top:11px;width:5px;height:5px;
+  background:var(--ox-purple);transform:rotate(45deg)}
+.terms p{margin:16px 0 0;font:500 11px/1.8 var(--ox-mono);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ox-mut)}
+
+.legend{max-width:620px;margin:22px auto 0;text-align:center;
+  font:500 11px/1.9 var(--ox-mono);letter-spacing:.04em;color:var(--ox-mut)}
+/* The table cell reserves a fixed width so the column lines up; in a sentence
+   that reads as a gap after each arrow, so drop it here. */
+.legend .mv{min-width:0;display:inline}
+.legend .mv s{margin-right:0}
+.pages{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:24px}
+.pages span{min-width:120px;text-align:center;font:500 11px var(--ox-mono);letter-spacing:.08em;
+  text-transform:uppercase;color:var(--ox-400)}
+
+@media (max-width:760px){
+  .board{border-left:0;border-right:0}
+  thead th,td{padding:11px 10px}
+}
+@media (max-width:460px){
+  .mv{min-width:44px;font-size:11px}
+  .mv s{margin-right:1px}
+  .who{font-size:12px;letter-spacing:.03em}
+  .rk{font-size:17px;min-width:22px}
+}
+</style>
+</head>
+<body>
+
+<header class="head">
+  <div class="wrap head-in">
+    <a class="brand" href="https://app.onyxodds.com/" target="_blank" rel="noopener" aria-label="Onyx">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 218 47" aria-hidden="true"><path d="M28.344 0C4.264 0 0 4.076 0 23.472S4.263 46.85 28.344 46.85s28.25-4.03 28.25-23.378C56.595 4.122 52.426 0 28.345 0m12.134 25.018c0 8.948-2.108 11.01-10.447 11.01h-3.326c-8.433 0-10.495-2.015-10.495-11.01v-3.139c0-8.995 2.061-11.057 10.494-11.057h3.327c8.34 0 10.447 2.062 10.447 11.057zM217.667 45.866l-16.852-23.094L216.776.984h-18.459l-7.616 13.618L183.232.984h-34.294l-8.425 15.88-9.097-15.88h-31.39v30.332L84.378.983h-23.19v44.882h14.57V13.741l16.678 32.125h22.067V2.633l17.475 26.742v16.491h16.023V29.61l17.045-26.911 14.796 20.168-16.803 23h19.115l7.97-14.196 8.053 14.196z"/></svg>
+      <span>Thanksgiving</span>
+    </a>
+    <nav class="tabs"><a class="tab" href="../"><b>Home</b><i>Home</i></a>
+      <a class="tab" href="../gauntlet/" aria-current="page"><b>Mini Games Gauntlet</b><i>Gauntlet</i></a>
+      <a class="tab" href="../rumble/"><b>Rips Rumble</b><i>Rumble</i></a></nav>
+    <nav class="acts">
+      <a class="markc" href="https://app.onyxodds.com/" target="_blank" rel="noopener" aria-label="Onyx">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 100 137" aria-hidden="true"><path d="m39.041 109.178 18.493 9.863-33.972 17.945L0 124.384v-84.11l39.041-20.411zm21.918-81.37-18.493-9.863L76.438 0 100 12.603v84.246L60.959 117.26z"/></svg>
+      </a>
+      <a class="btn sm" href="https://app.onyxodds.com/" target="_blank" rel="noopener">Play on Onyx</a>
+    </nav>
+  </div>
+</header>
+
+<div class="marq" aria-hidden="true"><div id="mq"></div></div>
+
+<section class="hero" data-ox-host>
+  <!-- Full bleed: the ambient texture, and the surface the leaves cascade over.
+       The turkey is its own canvas below so it is not lost behind the title. -->
+  <canvas class="hero-art" data-ox-art="field" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".6"
+          data-ox-lens="0" aria-hidden="true"></canvas>
+  <!-- Leaves get their own canvas at full strength. Sharing the textured one
+       meant the opacity that quietened the texture dimmed the leaves with it. -->
+  <canvas class="hero-leaves" data-ox-art="none" data-ox-lens="0" data-ox-cell="9"
+          data-ox-leaves data-ox-leaf-tone="ember" aria-hidden="true"></canvas>
+  <div class="wrap hero-in">
+    <span class="eyebrow">Thanksgiving</span>
+    <h1>Thanksgiving
+      <span class="gline">
+        <canvas class="mini-turkey" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
+                data-ox-calm=".45" data-ox-cell="6" data-ox-lens="0" aria-hidden="true"></canvas>
+        <em>Gauntlet</em>
+        <canvas class="mini-turkey flip" data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0"
+                data-ox-calm=".45" data-ox-cell="6" data-ox-lens="0" aria-hidden="true"></canvas>
+      </span></h1>
+    <p class="hero-round">November 20 to 27, 2026</p>
+    <p class="hero-sub">Updated as of 11:04 AM ET · November 25, 2026</p>
+  </div>
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><b id="sPlayers">0</b><i>Players</i></div>
+      <div class="stat"><b id="sPool">0</b><i>Bonus Onyx Cash</i></div>
+      <div class="stat"><b class="live" id="sPaid">0</b><i>Winning Places</i></div>
+    </div>
+  </div>
+</section>
+
+<main class="main">
+  <div class="wrap">
+    <div class="ctl">
+      <div class="srch">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input type="text" id="q" placeholder="Search player" aria-label="Search player">
+      </div>
+      <select id="ps" aria-label="Rows per page">
+        <option value="25">25 / page</option>
+        <option value="50">50 / page</option>
+        <option value="100">100 / page</option>
+        <option value="250">250 / page</option>
+      </select>
+    </div>
+    <div class="showing" id="show"></div>
+    <div class="board">
+      <table>
+        <thead><tr>
+          <th id="h-r" class="on" onclick="sb('r')">Rank</th>
+          <th id="h-d" onclick="sb('d')" title="Places gained or lost over the last 24 hours">Move</th>
+          <th id="h-u" onclick="sb('u')">Player</th>
+          <th id="h-p" class="prize" onclick="sb('p')">Prize</th>
+        </tr></thead>
+        <tbody id="tb"></tbody>
+      </table>
+    </div>
+    <div class="pages">
+      <button class="btn sm" type="button" onclick="go(-1)">Prev</button>
+      <span id="pi"></span>
+      <button class="btn sm" type="button" onclick="go(1)">Next</button>
+    </div>
+    <p class="legend">
+      <span class="mv up"><s>&#9650;</s></span> and <span class="mv dn"><s>&#9660;</s></span>
+      show places gained or lost over the last 24 hours.
+    </p>
+
+    <div class="harvest" aria-hidden="true">
+      <canvas data-ox-art="leaf" data-ox-tone="ember" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="acorn" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="turkey" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="pumpkin" data-ox-tone="ember" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+      <canvas data-ox-art="wheat" data-ox-tone="wheat" data-ox-fade="0" data-ox-calm=".5" data-ox-cell="6"></canvas>
+    </div>
+
+    <section class="terms">
+      <h2>Tournament Terms</h2>
+      <ul>
+        <li>The Thanksgiving Gauntlet runs November 20 to 27, 2026, inclusive, Eastern time.</li>
+        <li>Players are ranked by total amount staked on Onyx Mini Games during that window. Sweepstakes play only.
+            Where two players are level, the one with more rounds ranks higher.</li>
+        <li>The top 50 places share 20,000 Bonus Onyx Cash, awarded as
+            shown in the Prize column.</li>
+        <li>Prizes are credited within 48 hours of the completion of the
+            tournament.</li>
+        <li>Standings refresh regularly through the tournament and are marked
+            final once it closes.</li>
+      </ul>
+      <p>No purchase necessary. 18+. Terms apply.</p>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Onyx Odds &middot; Thanksgiving Gauntlet<br>No purchase necessary. 18+. Terms apply.</p>
+  </div>
+</footer>
+
+<script>
+var ALL=[{"r":1,"u":"E*****34","p":4000,"d":0,"k":"8d07811b850d"},{"r":2,"u":"m******r7","p":3000,"d":0,"k":"388a822385fe"},{"r":3,"u":"j*******31","p":2000,"d":0,"k":"5f2f7535afd9"},{"r":4,"u":"t****rr","p":1600,"d":2,"k":"e1775f58d27f"},{"r":5,"u":"h*******85","p":1500,"d":-1,"k":"0c96a362e2d3"},{"r":6,"u":"b****99","p":1000,"d":-1,"k":"1bf4ad223b48"},{"r":7,"u":"t********27","p":800,"d":5,"k":"1ff88edfb3f5"},{"r":8,"u":"j********ez","p":500,"d":-1,"k":"fa6425e36975"},{"r":9,"u":"I******25","p":500,"d":-1,"k":"093f4045dd74"},{"r":10,"u":"G*******im","p":500,"d":-1,"k":"fba2e3c5db3b"},{"r":11,"u":"K*********17","p":200,"d":255,"k":"07ac564e4df6"},{"r":12,"u":"T*********on","p":200,"d":null,"k":"90da86024763"},{"r":13,"u":"L*********ry","p":200,"d":-3,"k":"a7526d3754f1"},{"r":14,"u":"g*****d3","p":200,"d":-3,"k":"ea9e7e23de61"},{"r":15,"u":"g*******er","p":200,"d":null,"k":"b140bfd20a67"},{"r":16,"u":"C*****64","p":200,"d":1,"k":"dee3e1f36ea0"},{"r":17,"u":"a*********78","p":100,"d":2,"k":"b71eaba492c9"},{"r":18,"u":"a*****91","p":100,"d":-4,"k":"37280d349014"},{"r":19,"u":"u*********02","p":100,"d":-3,"k":"744fd2933aa2"},{"r":20,"u":"c*******32","p":100,"d":-7,"k":"36b2883d6254"},{"r":21,"u":"H***h8","p":100,"d":-6,"k":"0f004abae9a4"},{"r":22,"u":"d***23","p":100,"d":-4,"k":"81ab4d633092"},{"r":23,"u":"M*****15","p":100,"d":-3,"k":"1dc336c64acd"},{"r":24,"u":"S******ns","p":100,"d":34,"k":"77557f3ba5ca"},{"r":25,"u":"i******ru","p":100,"d":-4,"k":"6c1e5831511e"},{"r":26,"u":"G*********rC","p":100,"d":-4,"k":"7a8e9ab630b7"},{"r":27,"u":"J***13","p":100,"d":11,"k":"5c88fdab7ed7"},{"r":28,"u":"g**************lo","p":100,"d":57,"k":"c2922f3667c6"},{"r":29,"u":"d****yy","p":100,"d":-6,"k":"d1b54d44775f"},{"r":30,"u":"s*****90","p":100,"d":47,"k":"eae59fe55626"},{"r":31,"u":"J************37","p":100,"d":36,"k":"f23eb4c7749a"},{"r":32,"u":"t*****96","p":100,"d":-8,"k":"6ca2a6d834f3"},{"r":33,"u":"j******an","p":100,"d":-8,"k":"5c49fd94d481"},{"r":34,"u":"s********ks","p":100,"d":-8,"k":"c378c577d5a6"},{"r":35,"u":"e***nq","p":100,"d":-8,"k":"fa323f87eddd"},{"r":36,"u":"m****ck","p":100,"d":-8,"k":"93c37d3703de"},{"r":37,"u":"b******49","p":100,"d":28,"k":"5bd720df57c4"},{"r":38,"u":"j******se","p":100,"d":4,"k":"54e2d3caa1c0"},{"r":39,"u":"N************32","p":100,"d":1,"k":"4fa682bd6a18"},{"r":40,"u":"C****06","p":100,"d":-3,"k":"8df0a151a931"},{"r":41,"u":"B****r9","p":100,"d":-12,"k":"a5a572d92222"},{"r":42,"u":"Z*******ss","p":100,"d":-7,"k":"e7bc7df16b82"},{"r":43,"u":"S***10","p":100,"d":3,"k":"71c80d8c98e8"},{"r":44,"u":"2******ge","p":100,"d":-14,"k":"e48df2e7b76c"},{"r":45,"u":"L***i1","p":100,"d":-9,"k":"a4e8ec73c1f9"},{"r":46,"u":"u*********11","p":100,"d":-15,"k":"0b062fd7d584"},{"r":47,"u":"W******rt","p":100,"d":-15,"k":"26cbbc915c62"},{"r":48,"u":"S********ae","p":100,"d":-14,"k":"8ce4b76e5e2e"},{"r":49,"u":"e*****an","p":100,"d":-16,"k":"f675593adfbd"},{"r":50,"u":"C**********66","p":100,"d":321,"k":"1c27f8c9c25f"},{"r":51,"u":"D***ad","p":0,"d":-12,"k":"ebbf89d2b787"},{"r":52,"u":"M**********22","p":0,"d":0,"k":"866b580ea00d"},{"r":53,"u":"n**********22","p":0,"d":61,"k":"5b0088f8b621"},{"r":54,"u":"S************ey","p":0,"d":73,"k":"5deb85d10d3c"},{"r":55,"u":"p******72","p":0,"d":-14,"k":"33adde903b65"},{"r":56,"u":"b******86","p":0,"d":14,"k":"9f03727d8fc1"},{"r":57,"u":"a******th","p":0,"d":-12,"k":"2191d71bb115"},{"r":58,"u":"E***yy","p":0,"d":-15,"k":"aca3da7c2a9f"},{"r":59,"u":"j******21","p":0,"d":36,"k":"bcb5b142f1c5"},{"r":60,"u":"k*****************60","p":0,"d":-16,"k":"228ada71a886"},{"r":61,"u":"x****d_","p":0,"d":-11,"k":"3ac23e068f9e"},{"r":62,"u":"y*******o2","p":0,"d":-15,"k":"bb3a8d58f808"},{"r":63,"u":"s*********ow","p":0,"d":422,"k":"766d47fed39c"},{"r":64,"u":"u*********50","p":0,"d":-16,"k":"e1293e03f957"},{"r":65,"u":"u*********40","p":0,"d":-16,"k":"928c32dfc4fe"},{"r":66,"u":"R******in","p":0,"d":-15,"k":"745ba8131f9a"},{"r":67,"u":"F******ke","p":0,"d":-14,"k":"821799fc4bc6"},{"r":68,"u":"C********ls","p":0,"d":-14,"k":"cd650ba399cb"},{"r":69,"u":"n***en","p":0,"d":11,"k":"0986f9901fc7"},{"r":70,"u":"f***********02","p":0,"d":88,"k":"be10a8c9c17b"},{"r":71,"u":"d***************93","p":0,"d":93,"k":"600ce605ed00"},{"r":72,"u":"c********ng","p":0,"d":-17,"k":"c5b8dfec3de8"},{"r":73,"u":"R****nn","p":0,"d":-16,"k":"a61560ce8ae6"},{"r":74,"u":"t****yx","p":0,"d":-18,"k":"27783a182e0b"},{"r":75,"u":"h****************40","p":0,"d":-12,"k":"586ab9837006"},{"r":76,"u":"a*******34","p":0,"d":-2,"k":"400137650f8c"},{"r":77,"u":"j*****08","p":0,"d":-17,"k":"083cc04bb2c9"},{"r":78,"u":"b****************96","p":0,"d":-19,"k":"35ef6d86cf72"},{"r":79,"u":"c*****in","p":0,"d":-10,"k":"cf16406640f1"},{"r":80,"u":"T*******22","p":0,"d":-19,"k":"cefd650cce2e"},{"r":81,"u":"s***13","p":0,"d":-19,"k":"74548789566c"},{"r":82,"u":"B*****40","p":0,"d":119,"k":"2f5d1f88440a"},{"r":83,"u":"P****10","p":0,"d":-12,"k":"e9d78c959996"},{"r":84,"u":"u*********34","p":0,"d":-20,"k":"3d7120d3d925"},{"r":85,"u":"a******91","p":0,"d":-19,"k":"91899599ee56"},{"r":86,"u":"F*****26","p":0,"d":35,"k":"1b2bc82be9c4"},{"r":87,"u":"m****30","p":0,"d":120,"k":"f3e9d5c00401"},{"r":88,"u":"C**********88","p":0,"d":-13,"k":"6dd3d5781154"},{"r":89,"u":"a*****35","p":0,"d":14,"k":"75881387351e"},{"r":90,"u":"m*****93","p":0,"d":-22,"k":"edb128af9264"},{"r":91,"u":"A*************._","p":0,"d":6,"k":"e3e0e4d624a7"},{"r":92,"u":"B*******52","p":0,"d":0,"k":"a5043c8148b8"},{"r":93,"u":"H*****va","p":0,"d":-21,"k":"8024f39aae6c"},{"r":94,"u":"R**********08","p":0,"d":-21,"k":"c401beaa7a4e"},{"r":95,"u":"D***********83","p":0,"d":null,"k":"0b5a13470859"},{"r":96,"u":"d********ne","p":0,"d":14,"k":"3b5a96c23b69"},{"r":97,"u":"i*******ne","p":0,"d":-21,"k":"1dbdbbca408c"},{"r":98,"u":"N***37","p":0,"d":14,"k":"73ff49011362"},{"r":99,"u":"j******30","p":0,"d":-21,"k":"b3a1d43798f5"},{"r":100,"u":"R***********77","p":0,"d":-21,"k":"598cd42b6a91"},{"r":101,"u":"r********ha","p":0,"d":-5,"k":"0e0c3264081d"},{"r":102,"u":"M*****an","p":0,"d":-21,"k":"7c0c5c92f496"},{"r":103,"u":"L************ks","p":0,"d":4,"k":"7673e2d1114c"},{"r":104,"u":"a*****************95","p":0,"d":-11,"k":"d72d278f44ac"},{"r":105,"u":"R***91","p":0,"d":-23,"k":"f506bde5d28a"},{"r":106,"u":"R******wd","p":0,"d":-23,"k":"e937011b2331"},{"r":107,"u":"n******12","p":0,"d":-23,"k":"7ff9a9c7d1ce"},{"r":108,"u":"S***********85","p":0,"d":-18,"k":"f29c7b6860e7"},{"r":109,"u":"m********in","p":0,"d":-9,"k":"c4f71d2c02cf"},{"r":110,"u":"G*****20","p":0,"d":47,"k":"b9bbdc11e0e9"},{"r":111,"u":"L*************06","p":0,"d":-25,"k":"a32310dd9f7a"},{"r":112,"u":"L**********ds","p":0,"d":-25,"k":"9c655fac37f9"},{"r":113,"u":"R****34","p":0,"d":-25,"k":"84c771fef8ad"},{"r":114,"u":"d**********45","p":0,"d":-25,"k":"3790fb7407ec"},{"r":115,"u":"J***24","p":0,"d":18,"k":"54f7ed361ac5"},{"r":116,"u":"u*********03","p":0,"d":-17,"k":"c49b286cc249"},{"r":117,"u":"G*******n2","p":0,"d":24,"k":"7e81dc37c94f"},{"r":118,"u":"p*******13","p":0,"d":-27,"k":"8822c0f38934"},{"r":119,"u":"T*******04","p":0,"d":-3,"k":"bfb2375c86b0"},{"r":120,"u":"Q**********57","p":0,"d":-15,"k":"1a8d2efd843d"},{"r":121,"u":"s******60","p":0,"d":10,"k":"5aafd449c184"},{"r":122,"u":"c***in","p":0,"d":-28,"k":"9957fd6d7c10"},{"r":123,"u":"O********ie","p":0,"d":54,"k":"66679d768c16"},{"r":124,"u":"K******13","p":0,"d":0,"k":"30769c05ce72"},{"r":125,"u":"G*****n5","p":0,"d":-23,"k":"2fb106da09ee"},{"r":126,"u":"p*****2k","p":0,"d":-28,"k":"a2afbf0d724c"},{"r":127,"u":"R********do","p":0,"d":23,"k":"1d7250cc3856"},{"r":128,"u":"p********as","p":0,"d":-27,"k":"860e6eae5a99"},{"r":129,"u":"n******24","p":0,"d":-21,"k":"89e2681ebd73"},{"r":130,"u":"k*********xe","p":0,"d":-26,"k":"bc64b652733f"},{"r":131,"u":"X******ts","p":0,"d":-25,"k":"6dac38594353"},{"r":132,"u":"p*********ep","p":0,"d":349,"k":"e1ab222ec2ca"},{"r":133,"u":"B***ck","p":0,"d":59,"k":"289f98234e4a"},{"r":134,"u":"c**********24","p":0,"d":-25,"k":"a885fb601db5"},{"r":135,"u":"b******56","p":0,"d":-24,"k":"981becacda96"},{"r":136,"u":"e*********93","p":0,"d":16,"k":"9cb794d8077c"},{"r":137,"u":"D*********en","p":0,"d":-24,"k":"5ac516dffe97"},{"r":138,"u":"M***********29","p":0,"d":-12,"k":"744ac6cb67ea"},{"r":139,"u":"c*******09","p":0,"d":-24,"k":"89437075586d"},{"r":140,"u":"S*********30","p":0,"d":null,"k":"981340d6fc29"},{"r":141,"u":"c*******51","p":0,"d":-12,"k":"b06e5469a13f"},{"r":142,"u":"T*****gg","p":0,"d":-25,"k":"e80f5faf5044"},{"r":143,"u":"c***12","p":0,"d":-24,"k":"7c120d10ab7e"},{"r":144,"u":"Q*******l9","p":0,"d":-26,"k":"86b8b542614d"},{"r":145,"u":"i*********ot","p":0,"d":-5,"k":"0af1cc69b396"},{"r":146,"u":"j********25","p":0,"d":-26,"k":"fbc26d89b51d"},{"r":147,"u":"R******tt","p":0,"d":-25,"k":"3877792229a2"},{"r":148,"u":"J*****97","p":0,"d":306,"k":"323b23a6652c"},{"r":149,"u":"S****ch","p":0,"d":-26,"k":"21e01f2fc286"},{"r":150,"u":"j******00","p":0,"d":-20,"k":"441754dfbc07"},{"r":151,"u":"k******rk","p":0,"d":-19,"k":"701666b6f67b"},{"r":152,"u":"j********0_","p":0,"d":-27,"k":"c8aa3acbae71"},{"r":153,"u":"C*******87","p":0,"d":-25,"k":"c3ca44d138a5"},{"r":154,"u":"d*****56","p":0,"d":-11,"k":"d3207133989f"},{"r":155,"u":"r******od","p":0,"d":47,"k":"eec046c65c48"},{"r":156,"u":"C***ye","p":0,"d":-8,"k":"cb601b8aa40b"},{"r":157,"u":"u*********65","p":0,"d":5,"k":"5852c770fabe"},{"r":158,"u":"N********bt","p":0,"d":2,"k":"50f0ec01c149"},{"r":159,"u":"t****is","p":0,"d":-25,"k":"b919420cc646"},{"r":160,"u":"a*****be","p":0,"d":-25,"k":"4399e7bac208"},{"r":161,"u":"s*****uz","p":0,"d":-25,"k":"01bf9c841219"},{"r":162,"u":"d**********19","p":0,"d":null,"k":"a18820dfe272"},{"r":163,"u":"c****w5","p":0,"d":31,"k":"59b0fb510744"},{"r":164,"u":"b*******10","p":0,"d":-27,"k":"a2ea93f0ae8e"},{"r":165,"u":"t*******************42","p":0,"d":-27,"k":"77135b13d46e"},{"r":166,"u":"s*******84","p":0,"d":-19,"k":"ed324c4b558d"},{"r":167,"u":"a********88","p":0,"d":-28,"k":"d43c8fa2dcd2"},{"r":168,"u":"D*******kd","p":0,"d":-5,"k":"0d7aa0807cfe"},{"r":169,"u":"T*************at","p":0,"d":-27,"k":"681af8106175"},{"r":170,"u":"c********91","p":0,"d":-26,"k":"5994be09827e"},{"r":171,"u":"4***V4","p":0,"d":-26,"k":"e5c712d7beaa"},{"r":172,"u":"B**********17","p":0,"d":-26,"k":"aa4ec6771099"},{"r":173,"u":"p*******21","p":0,"d":-24,"k":"d3aa75965482"},{"r":174,"u":"a**********os","p":0,"d":-23,"k":"25bc0f0ee767"},{"r":175,"u":"p*********34","p":0,"d":null,"k":"296a14d7c3a6"},{"r":176,"u":"B***ez","p":0,"d":72,"k":"16a5fc4f6e52"},{"r":177,"u":"e****er","p":0,"d":55,"k":"56ecd086f83a"},{"r":178,"u":"T***26","p":0,"d":-25,"k":"0f815eefe492"},{"r":179,"u":"k***68","p":0,"d":-23,"k":"537d813603d1"},{"r":180,"u":"t********ez","p":0,"d":-26,"k":"eb2811ca23ce"},{"r":181,"u":"H***yd","p":0,"d":17,"k":"cef258b92e4f"},{"r":182,"u":"B********23","p":0,"d":-27,"k":"978d48a341d7"},{"r":183,"u":"v******ak","p":0,"d":29,"k":"c4798665c248"},{"r":184,"u":"F********l1","p":0,"d":-23,"k":"d6e40308ae2b"},{"r":185,"u":"m*********er","p":0,"d":11,"k":"fd1019761440"},{"r":186,"u":"J*****e1","p":0,"d":-10,"k":"0316bd86bb68"},{"r":187,"u":"h******ck","p":0,"d":-20,"k":"54dec64ab3e9"},{"r":188,"u":"D*****rn","p":0,"d":-29,"k":"f4e297303036"},{"r":189,"u":"c**********13","p":0,"d":563,"k":"c00370d92a47"},{"r":190,"u":"j*****18","p":0,"d":-17,"k":"db1fb2431463"},{"r":191,"u":"H*********48","p":0,"d":-26,"k":"f735e48e3d9b"},{"r":192,"u":"L*******70","p":0,"d":null,"k":"9fc40c8161be"},{"r":193,"u":"M***ak","p":0,"d":-27,"k":"db4f62862a62"},{"r":194,"u":"S**********05","p":0,"d":null,"k":"301683b6eb71"},{"r":195,"u":"m******75","p":0,"d":-27,"k":"cd81cbe062ca"},{"r":196,"u":"r**********24","p":0,"d":-27,"k":"e780119eee7f"},{"r":197,"u":"J********14","p":0,"d":-26,"k":"ef725f5a3b7a"},{"r":198,"u":"b**********69","p":0,"d":-28,"k":"3a66f275c555"},{"r":199,"u":"n*********67","p":0,"d":51,"k":"48ee1c303c7b"},{"r":200,"u":"J***02","p":0,"d":-19,"k":"9b697c9fc0ef"},{"r":201,"u":"c*****p1","p":0,"d":-29,"k":"e3ad84909058"},{"r":202,"u":"k**********64","p":0,"d":-28,"k":"9e570c7b9f21"},{"r":203,"u":"p*****oo","p":0,"d":499,"k":"6f2dfe674a0e"},{"r":204,"u":"l***rm","p":0,"d":-29,"k":"6a745ed83fb5"},{"r":205,"u":"w**********ez","p":0,"d":-19,"k":"c37385c5d406"},{"r":206,"u":"T*********ed","p":0,"d":175,"k":"04b98d0377b5"},{"r":207,"u":"a******05","p":0,"d":-29,"k":"aeead05cb491"},{"r":208,"u":"t********ll","p":0,"d":-29,"k":"a24ce82b05e7"},{"r":209,"u":"J***82","p":0,"d":-27,"k":"0941bf0ea578"},{"r":210,"u":"c*******16","p":0,"d":-30,"k":"327ceb3c1c52"},{"r":211,"u":"b*******42","p":0,"d":null,"k":"3d3eb967defc"},{"r":212,"u":"D******00","p":0,"d":21,"k":"3727d91a2842"},{"r":213,"u":"L*****52","p":0,"d":122,"k":"68b340376cd7"},{"r":214,"u":"N****or","p":0,"d":-31,"k":"05643102f819"},{"r":215,"u":"C*****94","p":0,"d":-31,"k":"afe7742c64ea"},{"r":216,"u":"k*******06","p":0,"d":null,"k":"963118546b8e"},{"r":217,"u":"T*****39","p":0,"d":176,"k":"e727f938033b"},{"r":218,"u":"n******nd","p":0,"d":-33,"k":"df997faaead0"},{"r":219,"u":"u*********70","p":0,"d":84,"k":"bf637ce1b330"},{"r":220,"u":"h*******13","p":0,"d":71,"k":"8ab554b8f9cb"},{"r":221,"u":"r*******ks","p":0,"d":220,"k":"8809f03446e7"},{"r":222,"u":"u*********93","p":0,"d":-35,"k":"6b86f1cf5091"},{"r":223,"u":"L*******in","p":0,"d":-19,"k":"73ea614eac8f"},{"r":224,"u":"V*************93","p":0,"d":-9,"k":"83583e67e8d6"},{"r":225,"u":"A**********wn","p":0,"d":108,"k":"2687a8223fc9"},{"r":226,"u":"L********tt","p":0,"d":-38,"k":"ca89d7a6044c"},{"r":227,"u":"v****************27","p":0,"d":-38,"k":"418386d0a906"},{"r":228,"u":"S******77","p":0,"d":-38,"k":"f096572605df"},{"r":229,"u":"d********op","p":0,"d":-29,"k":"b2959f1f3ded"},{"r":230,"u":"a*******o3","p":0,"d":-39,"k":"7e5b5815b793"},{"r":231,"u":"t****c1","p":0,"d":-38,"k":"3a45d9cf9a1d"},{"r":232,"u":"L*****62","p":0,"d":-37,"k":"1cf00a4c475b"},{"r":233,"u":"K****ks","p":0,"d":388,"k":"c562041844b2"},{"r":234,"u":"R*******50","p":0,"d":-16,"k":"d5083caa1472"},{"r":235,"u":"C*****me","p":0,"d":-38,"k":"b98138b4e4f8"},{"r":236,"u":"d******rr","p":0,"d":-37,"k":"5dbb7d2f752a"},{"r":237,"u":"g*******ts","p":0,"d":-34,"k":"3ebaee872352"},{"r":238,"u":"c********12","p":0,"d":-33,"k":"e324ad2f7bf0"},{"r":239,"u":"k*****dy","p":0,"d":20,"k":"42a977ee80ad"},{"r":240,"u":"S****14","p":0,"d":null,"k":"2d8520b71a54"},{"r":241,"u":"F******19","p":0,"d":null,"k":"203b21c55d27"},{"r":242,"u":"t**************44","p":0,"d":-36,"k":"2061eff0b1e2"},{"r":243,"u":"u*********93","p":0,"d":27,"k":"e7dd838ea6fe"},{"r":244,"u":"J******f5","p":0,"d":1,"k":"6ed341f3c244"},{"r":245,"u":"d***50","p":0,"d":33,"k":"73509d01c7a8"},{"r":246,"u":"J******_V","p":0,"d":-38,"k":"e58f5eefb304"},{"r":247,"u":"G****yy","p":0,"d":-37,"k":"8de9d776c548"},{"r":248,"u":"k****42","p":0,"d":-39,"k":"d99bd1fb44d0"},{"r":249,"u":"B****69","p":0,"d":485,"k":"f07816c83087"},{"r":250,"u":"A*****ti","p":0,"d":13,"k":"7b89c0710999"},{"r":251,"u":"s*****23","p":0,"d":276,"k":"b5b219ced9c8"},{"r":252,"u":"o********26","p":0,"d":-29,"k":"e66a8073c811"},{"r":253,"u":"t****er","p":0,"d":null,"k":"be2ace389fd8"},{"r":254,"u":"d*******nn","p":0,"d":-43,"k":"f0878da0de53"},{"r":255,"u":"s********at","p":0,"d":191,"k":"cc1194a512ca"},{"r":256,"u":"p*************60","p":0,"d":-19,"k":"66b9528f5ec7"},{"r":257,"u":"R******id","p":0,"d":-17,"k":"302b4aa647bc"},{"r":258,"u":"s****ss","p":0,"d":63,"k":"b8a0446977e9"},{"r":259,"u":"R****83","p":0,"d":-46,"k":"b93730086b80"},{"r":260,"u":"m*********9!","p":0,"d":-46,"k":"1e1daf8d1878"},{"r":261,"u":"f*********me","p":0,"d":-35,"k":"90d6e483d51d"},{"r":262,"u":"M******99","p":0,"d":-7,"k":"2fc363addb30"},{"r":263,"u":"C***01","p":0,"d":1,"k":"6856aa9e7c65"},{"r":264,"u":"K********09","p":0,"d":-48,"k":"3855e26c3f49"},{"r":265,"u":"H********57","p":0,"d":-48,"k":"382e8936b5ad"},{"r":266,"u":"j********24","p":0,"d":176,"k":"2db3fd1a390a"},{"r":267,"u":"y***vx","p":0,"d":-48,"k":"601ceea16790"},{"r":268,"u":"J***MM","p":0,"d":-48,"k":"25a95b56ebc1"},{"r":269,"u":"j*****************98","p":0,"d":-48,"k":"d8e467241c53"},{"r":270,"u":"K******ka","p":0,"d":-48,"k":"3a177c54da84"},{"r":271,"u":"u**********v4","p":0,"d":268,"k":"ba32e825836a"},{"r":272,"u":"S******79","p":0,"d":-7,"k":"73507414800b"},{"r":273,"u":"Q*****al","p":0,"d":-49,"k":"661bf51d62aa"},{"r":274,"u":"u*********30","p":0,"d":-32,"k":"ce9d1b6fac6d"},{"r":275,"u":"c******am","p":0,"d":-50,"k":"aaf7f5b7eeba"},{"r":276,"u":"h****97","p":0,"d":190,"k":"42318a32f9b2"},{"r":277,"u":"a************63","p":0,"d":-50,"k":"4f5981c15214"},{"r":278,"u":"r*****10","p":0,"d":null,"k":"75012da3207c"},{"r":279,"u":"e****55","p":0,"d":-51,"k":"76b63998b3de"},{"r":280,"u":"s*******48","p":0,"d":-51,"k":"a672cccbf33b"},{"r":281,"u":"N**********88","p":0,"d":-51,"k":"68f5612a966c"},{"r":282,"u":"D*****04","p":0,"d":null,"k":"f809f198e60a"},{"r":283,"u":"w******32","p":0,"d":-27,"k":"e9808749833a"},{"r":284,"u":"H************33","p":0,"d":-53,"k":"0a69b05395bd"},{"r":285,"u":"w******55","p":0,"d":-46,"k":"9e3469539047"},{"r":286,"u":"b*****22","p":0,"d":-51,"k":"60076cb08c19"},{"r":287,"u":"J***43","p":0,"d":-53,"k":"2520ac711269"},{"r":288,"u":"A**********43","p":0,"d":544,"k":"cecad1de171e"},{"r":289,"u":"S***********17","p":0,"d":25,"k":"5a2ccbe43e92"},{"r":290,"u":"E********99","p":0,"d":-38,"k":"09f00a5f23c4"},{"r":291,"u":"D*********LC","p":0,"d":-55,"k":"fb0e98810c41"},{"r":292,"u":"u*********29","p":0,"d":-11,"k":"3f542097595a"},{"r":293,"u":"S*************88","p":0,"d":-55,"k":"a76ce43f3df4"},{"r":294,"u":"k******26","p":0,"d":-43,"k":"235676cd55a2"},{"r":295,"u":"s*******10","p":0,"d":-54,"k":"4b000aede076"},{"r":296,"u":"M********77","p":0,"d":-53,"k":"7601e65afb94"},{"r":297,"u":"P*******26","p":0,"d":-53,"k":"d4d2e60ebbd0"},{"r":298,"u":"M********44","p":0,"d":352,"k":"171305fe0e05"},{"r":299,"u":"n*******va","p":0,"d":-53,"k":"799294bf28d2"},{"r":300,"u":"B***********17","p":0,"d":-53,"k":"5763195973e3"},{"r":301,"u":"r******el","p":0,"d":-52,"k":"e7268e21b37f"},{"r":302,"u":"m********24","p":0,"d":311,"k":"3ecb09915e11"},{"r":303,"u":"g*********da","p":0,"d":-50,"k":"1cfc729ee634"},{"r":304,"u":"p********04","p":0,"d":-50,"k":"5a61ae60b950"},{"r":305,"u":"D*******52","p":0,"d":-48,"k":"9608a312d734"},{"r":306,"u":"b********al","p":0,"d":-48,"k":"b35c0d773d9b"},{"r":307,"u":"B*********52","p":0,"d":352,"k":"8f2d97659f32"},{"r":308,"u":"g****12","p":0,"d":-20,"k":"712d0ed5cad9"},{"r":309,"u":"t********19","p":0,"d":null,"k":"874a35e20a50"},{"r":310,"u":"E*********24","p":0,"d":null,"k":"6ce81c3756f6"},{"r":311,"u":"u*********75","p":0,"d":-10,"k":"a0c5ba8c9cbb"},{"r":312,"u":"b******ac","p":0,"d":-52,"k":"62e46d0d0330"},{"r":313,"u":"B******52","p":0,"d":9,"k":"181460083efa"},{"r":314,"u":"T******ed","p":0,"d":-46,"k":"32be68f75569"},{"r":315,"u":"D********ks","p":0,"d":-54,"k":"352d25a076bd"},{"r":316,"u":"S**********43","p":0,"d":-54,"k":"f6994edb5a3e"},{"r":317,"u":"A*********45","p":0,"d":-32,"k":"be3f6cda342b"},{"r":318,"u":"A***ar","p":0,"d":-51,"k":"6bb316ed3b4f"},{"r":319,"u":"a*******16","p":0,"d":-24,"k":"085b565520cd"},{"r":320,"u":"f************99","p":0,"d":-21,"k":"51de1ab939af"},{"r":321,"u":"m*****26","p":0,"d":-52,"k":"5b8e12fd80a9"},{"r":322,"u":"s***s1","p":0,"d":136,"k":"0ab66bd27a2b"},{"r":323,"u":"s*******go","p":0,"d":6,"k":"dfb02eb78f77"},{"r":324,"u":"y**********ky","p":0,"d":21,"k":"59c3323408c8"},{"r":325,"u":"R*****24","p":0,"d":-54,"k":"9744837c4d4b"},{"r":326,"u":"m*******03","p":0,"d":-54,"k":"fdb47f187408"},{"r":327,"u":"M**********01","p":0,"d":-43,"k":"e30f5f331411"},{"r":328,"u":"d****10","p":0,"d":-55,"k":"5690b55d1bc6"},{"r":329,"u":"a********00","p":0,"d":-55,"k":"6fa62d370d09"},{"r":330,"u":"b***ig","p":0,"d":-55,"k":"6e4d57661586"},{"r":331,"u":"S*********23","p":0,"d":-55,"k":"e5ba447eda9e"},{"r":332,"u":"B*********69","p":0,"d":-55,"k":"a2acc98f5980"},{"r":333,"u":"g***cc","p":0,"d":-31,"k":"8eadc4d121f3"},{"r":334,"u":"K***xx","p":0,"d":-55,"k":"f35f28b5b064"},{"r":335,"u":"S********is","p":0,"d":-39,"k":"5c231f073ea7"},{"r":336,"u":"m******at","p":0,"d":509,"k":"d32866bef43d"},{"r":337,"u":"i****ug","p":0,"d":-57,"k":"ec40d202ead4"},{"r":338,"u":"M*******ke","p":0,"d":-52,"k":"fcad8c50dbf7"},{"r":339,"u":"s*********69","p":0,"d":-57,"k":"4747f4ebada8"},{"r":340,"u":"w***dy","p":0,"d":null,"k":"64faa59cb023"},{"r":341,"u":"n*******24","p":0,"d":-58,"k":"643a763882c6"},{"r":342,"u":"S*********06","p":0,"d":-55,"k":"84c3cb625132"},{"r":343,"u":"c*******p2","p":0,"d":-33,"k":"8f0d4151f85c"},{"r":344,"u":"d***********35","p":0,"d":-55,"k":"03146b2f783d"},{"r":345,"u":"K*****34","p":0,"d":-55,"k":"18aca33fd74e"},{"r":346,"u":"M********ss","p":0,"d":-54,"k":"ebe38952c850"},{"r":347,"u":"L*****tz","p":0,"d":-54,"k":"11594895227b"},{"r":348,"u":"t********nn","p":0,"d":-50,"k":"7bb3a9426918"},{"r":349,"u":"b******************60","p":0,"d":-55,"k":"38453ed8a21e"},{"r":350,"u":"C******ff","p":0,"d":-31,"k":"24fae99707f5"},{"r":351,"u":"M*********93","p":0,"d":null,"k":"39ece69188a1"},{"r":352,"u":"S********77","p":0,"d":-55,"k":"ce828b195634"},{"r":353,"u":"u*********86","p":0,"d":17,"k":"47132f23d7f5"},{"r":354,"u":"b****s0","p":0,"d":-24,"k":"ff4cf58dc435"},{"r":355,"u":"a*******oi","p":0,"d":-55,"k":"5241984b9777"},{"r":356,"u":"B******12","p":0,"d":null,"k":"1bf04f100cb9"},{"r":357,"u":"C**********68","p":0,"d":null,"k":"2b7b08f7fc6b"},{"r":358,"u":"p******lo","p":0,"d":-53,"k":"15f7c2263f9c"},{"r":359,"u":"1****ll","p":0,"d":-35,"k":"5844f86cd950"},{"r":360,"u":"b******14","p":0,"d":-53,"k":"0ef0073c4c90"},{"r":361,"u":"U*****al","p":0,"d":-57,"k":"e680b18ba98d"},{"r":362,"u":"a***********ty","p":0,"d":2,"k":"11b48ce7fc80"},{"r":363,"u":"c***ie","p":0,"d":40,"k":"bf90c9e3ebff"},{"r":364,"u":"d***ls","p":0,"d":-41,"k":"d58e91b62660"},{"r":365,"u":"O******od","p":0,"d":19,"k":"34baa56ac9b4"},{"r":366,"u":"d*****ns","p":0,"d":-60,"k":"4d85fff0ae36"},{"r":367,"u":"A**********13","p":0,"d":572,"k":"d1fc8a3092bf"},{"r":368,"u":"C****ey","p":0,"d":-60,"k":"1cc77261e81e"},{"r":369,"u":"h*****95","p":0,"d":-60,"k":"5cdcddc8a4a3"},{"r":370,"u":"P****23","p":0,"d":-59,"k":"c1dab6b58724"},{"r":371,"u":"u*********27","p":0,"d":-59,"k":"346d5a783ac0"},{"r":372,"u":"R*****93","p":0,"d":-38,"k":"97fa440ded58"},{"r":373,"u":"Y*****at","p":0,"d":-16,"k":"4737b8eaa3af"},{"r":374,"u":"T******KS","p":0,"d":null,"k":"f903793c0234"},{"r":375,"u":"f*********te","p":0,"d":-62,"k":"2d80e446e6f1"},{"r":376,"u":"B*******41","p":0,"d":260,"k":"155de5a35173"},{"r":377,"u":"b***********ss","p":0,"d":-62,"k":"f2a01799ed62"},{"r":378,"u":"f***ew","p":0,"d":-62,"k":"59cd489c235e"},{"r":379,"u":"r****st","p":0,"d":-62,"k":"6db693c99fa2"},{"r":380,"u":"d*****12","p":0,"d":-62,"k":"2397a8594dff"},{"r":381,"u":"j******09","p":0,"d":-61,"k":"9f161679c737"},{"r":382,"u":"l****t6","p":0,"d":73,"k":"44bb966ac1ca"},{"r":383,"u":"U******27","p":0,"d":-14,"k":"22036305564a"},{"r":384,"u":"b********82","p":0,"d":null,"k":"448d4f3f4531"},{"r":385,"u":"J*****ee","p":0,"d":99,"k":"196692ca1eef"},{"r":386,"u":"t*******vt","p":0,"d":-61,"k":"cb98bf14b1f9"},{"r":387,"u":"L**********50","p":0,"d":-61,"k":"e32372106ced"},{"r":388,"u":"a****23","p":0,"d":87,"k":"bab2864ba503"},{"r":389,"u":"d******15","p":0,"d":-62,"k":"248869b5701b"},{"r":390,"u":"C*******07","p":0,"d":-62,"k":"9702f96e09ca"},{"r":391,"u":"d******17","p":0,"d":-25,"k":"a585b90d90f6"},{"r":392,"u":"G***88","p":0,"d":-61,"k":"57f2653d576c"},{"r":393,"u":"a******68","p":0,"d":-57,"k":"3345afee1574"},{"r":394,"u":"G***********74","p":0,"d":null,"k":"2fdd64c81ee1"},{"r":395,"u":"i******88","p":0,"d":-63,"k":"d755862a141e"},{"r":396,"u":"c********23","p":0,"d":-46,"k":"7bb3b6fb8f31"},{"r":397,"u":"w*****ze","p":0,"d":51,"k":"d35707f94742"},{"r":398,"u":"C********44","p":0,"d":-20,"k":"2617beb3d76e"},{"r":399,"u":"S*******es","p":0,"d":null,"k":"e41469c0ae2a"},{"r":400,"u":"t*****20","p":0,"d":32,"k":"2de9d827d2c9"},{"r":401,"u":"r*******97","p":0,"d":-64,"k":"3802f2592a21"},{"r":402,"u":"b***d9","p":0,"d":-64,"k":"f8e39d0ce258"},{"r":403,"u":"P**********82","p":0,"d":30,"k":"560028c35df4"},{"r":404,"u":"S********41","p":0,"d":-53,"k":"e89de862753a"},{"r":405,"u":"P*********15","p":0,"d":-66,"k":"4b27578e803f"},{"r":406,"u":"B******39","p":0,"d":-66,"k":"a7311d83857d"},{"r":407,"u":"A**********14","p":0,"d":-66,"k":"b6476d5132fe"},{"r":408,"u":"J*****77","p":0,"d":-66,"k":"a8d42e6321c4"},{"r":409,"u":"l****um","p":0,"d":-66,"k":"e8ef81c0c03d"},{"r":410,"u":"R***********95","p":0,"d":null,"k":"0cf3bbdd4321"},{"r":411,"u":"j*****07","p":0,"d":-67,"k":"cd083fdb2b6c"},{"r":412,"u":"L****03","p":0,"d":-63,"k":"0b2e90bcd4eb"},{"r":413,"u":"R*********64","p":0,"d":-37,"k":"ab25994c23eb"},{"r":414,"u":"D****n8","p":0,"d":-68,"k":"8f635c79fe1e"},{"r":415,"u":"r*******25","p":0,"d":-52,"k":"dcebe1ef461c"},{"r":416,"u":"P**********33","p":0,"d":-68,"k":"b1d4503bea30"},{"r":417,"u":"j*****16","p":0,"d":-70,"k":"cd05ad972be5"},{"r":418,"u":"G******eh","p":0,"d":103,"k":"4366469cf85d"},{"r":419,"u":"R*******85","p":0,"d":-61,"k":"f5e8850488dc"},{"r":420,"u":"W*********79","p":0,"d":24,"k":"75262f68c012"},{"r":421,"u":"h*******57","p":0,"d":10,"k":"678084959510"},{"r":422,"u":"d********44","p":0,"d":null,"k":"73b375557f69"},{"r":423,"u":"z*****f8","p":0,"d":-71,"k":"7f287cf536fe"},{"r":424,"u":"A***22","p":0,"d":122,"k":"5dc85a93df3a"},{"r":425,"u":"m*******se","p":0,"d":-71,"k":"f6dd84121527"},{"r":426,"u":"y*****20","p":0,"d":-73,"k":"86937e8272ac"},{"r":427,"u":"m****91","p":0,"d":-72,"k":"e19eac7aab15"},{"r":428,"u":"s********91","p":0,"d":-72,"k":"c2c0344d4140"},{"r":429,"u":"Y*****13","p":0,"d":300,"k":"06245f01a374"},{"r":430,"u":"S********54","p":0,"d":null,"k":"b3772f2e9a19"},{"r":431,"u":"O******er","p":0,"d":-72,"k":"914eab6dfb9c"},{"r":432,"u":"s***3w","p":0,"d":-72,"k":"5276bd06dab4"},{"r":433,"u":"d*****23","p":0,"d":-44,"k":"a53772219895"},{"r":434,"u":"t*****oi","p":0,"d":-73,"k":"684ee4736639"},{"r":435,"u":"7*******er","p":0,"d":-73,"k":"b9817e16080e"},{"r":436,"u":"K********21","p":0,"d":83,"k":"f0729b408db3"},{"r":437,"u":"n****ya","p":0,"d":-64,"k":"e99f6c5be211"},{"r":438,"u":"g*******it","p":0,"d":-71,"k":"e26ada91d979"},{"r":439,"u":"S*****nk","p":0,"d":-56,"k":"53bd6c0a16d7"},{"r":440,"u":"L******90","p":0,"d":-24,"k":"166c62f2a1fe"},{"r":441,"u":"B*********19","p":0,"d":62,"k":"5130cfcffd8f"},{"r":442,"u":"G*******nt","p":0,"d":-77,"k":"b321cbdc1bda"},{"r":443,"u":"u*********10","p":0,"d":null,"k":"f611fe081632"},{"r":444,"u":"A********24","p":0,"d":338,"k":"a821e638e10a"},{"r":445,"u":"r*******77","p":0,"d":-77,"k":"bf6ebdb36845"},{"r":446,"u":"s*******on","p":0,"d":275,"k":"02e772e0d981"},{"r":447,"u":"p****ee","p":0,"d":-75,"k":"28517b6a0e7d"},{"r":448,"u":"j******is","p":0,"d":-53,"k":"b9db8a7e27ac"},{"r":449,"u":"s*****ic","p":0,"d":-75,"k":"f9d5e666e956"},{"r":450,"u":"M*******21","p":0,"d":-75,"k":"44ffe527c37b"},{"r":451,"u":"m*****75","p":0,"d":-41,"k":"523ac854c8c8"},{"r":452,"u":"c***mb","p":0,"d":-75,"k":"bc85ea4235f5"},{"r":453,"u":"T******79","p":0,"d":null,"k":"e0058c59b9ae"},{"r":454,"u":"N***********73","p":0,"d":69,"k":"88187ef884b1"},{"r":455,"u":"j****29","p":0,"d":237,"k":"b3ceb9f7c2a3"},{"r":456,"u":"S**********pt","p":0,"d":-77,"k":"0aeeb63b3a54"},{"r":457,"u":"k*****00","p":0,"d":-77,"k":"c87b1469bd9f"},{"r":458,"u":"p*********ia","p":0,"d":null,"k":"29e5489017fe"},{"r":459,"u":"S*********22","p":0,"d":-77,"k":"a102ecba03e6"},{"r":460,"u":"M******57","p":0,"d":155,"k":"9be4e8b59194"},{"r":461,"u":"c***31","p":0,"d":16,"k":"bf04d0a13eee"},{"r":462,"u":"t***la","p":0,"d":-65,"k":"5af1f5f0f7cd"},{"r":463,"u":"F********ET","p":0,"d":null,"k":"86df8da6607f"},{"r":464,"u":"L*****qs","p":0,"d":null,"k":"f3242c1e7fd6"},{"r":465,"u":"t****23","p":0,"d":-57,"k":"db73942d75b1"},{"r":466,"u":"W*******66","p":0,"d":-57,"k":"8204fa28c688"},{"r":467,"u":"k******74","p":0,"d":63,"k":"d519ad2064ed"},{"r":468,"u":"m***57","p":0,"d":-81,"k":"2ca699103684"},{"r":469,"u":"a******04","p":0,"d":-84,"k":"26f739fe18e0"},{"r":470,"u":"A********01","p":0,"d":228,"k":"3cfd449851db"},{"r":471,"u":"j***ii","p":0,"d":24,"k":"c45f195a3fb7"},{"r":472,"u":"D******BE","p":0,"d":-86,"k":"f2b0d3bff7b3"},{"r":473,"u":"m************ow","p":0,"d":9,"k":"a1a0dcdb637f"},{"r":474,"u":"l*****99","p":0,"d":-86,"k":"2b340eab58da"},{"r":475,"u":"C****pp","p":0,"d":-83,"k":"f81362a2dc77"},{"r":476,"u":"n********22","p":0,"d":-86,"k":"d928be933df9"},{"r":477,"u":"b**********00","p":0,"d":-86,"k":"96387d39df70"},{"r":478,"u":"h******ds","p":0,"d":-67,"k":"79f4b3f32d3f"},{"r":479,"u":"j******f2","p":0,"d":-65,"k":"63bbcb661739"},{"r":480,"u":"r******ef","p":0,"d":null,"k":"0e46b56a5dad"},{"r":481,"u":"A********23","p":0,"d":-9,"k":"3171a195e509"},{"r":482,"u":"s****33","p":0,"d":-88,"k":"1f577927cf35"},{"r":483,"u":"k***23","p":0,"d":203,"k":"4b61585b4596"},{"r":484,"u":"m*******10","p":0,"d":null,"k":"4ec8b1b63ba8"},{"r":485,"u":"C*****on","p":0,"d":-89,"k":"35e83cb7236b"},{"r":486,"u":"K*******33","p":0,"d":-88,"k":"3ff998be4cd0"},{"r":487,"u":"b****k_","p":0,"d":-81,"k":"a008fb7bdde7"},{"r":488,"u":"w***********on","p":0,"d":-89,"k":"4cd3a3ae5b88"},{"r":489,"u":"j********on","p":0,"d":-89,"k":"08e8b6d95ab7"},{"r":490,"u":"b*******13","p":0,"d":-21,"k":"133235ff46ea"},{"r":491,"u":"t*****91","p":0,"d":-90,"k":"d7b61330c5eb"},{"r":492,"u":"c********hu","p":0,"d":-90,"k":"01f3166c37e5"},{"r":493,"u":"B***ie","p":0,"d":-89,"k":"7972b4963261"},{"r":494,"u":"s******90","p":0,"d":-89,"k":"c782c5df06c5"},{"r":495,"u":"a*********er","p":0,"d":null,"k":"47c3e8c0eb4c"},{"r":496,"u":"w**********78","p":0,"d":-76,"k":"5c3a914cc834"},{"r":497,"u":"R*******ks","p":0,"d":70,"k":"7e0b564fafbb"},{"r":498,"u":"n****ay","p":0,"d":-80,"k":"7a396a54fb83"},{"r":499,"u":"M***as","p":0,"d":-23,"k":"d3959dd4bc0d"},{"r":500,"u":"t********21","p":0,"d":-93,"k":"87cf46a20e58"},{"r":501,"u":"e*********an","p":0,"d":-48,"k":"1eb2839072d8"},{"r":502,"u":"i*****************33","p":0,"d":286,"k":"d5524e87b2a9"},{"r":503,"u":"e*****ia","p":0,"d":-91,"k":"d610356a4676"},{"r":504,"u":"m*********01","p":0,"d":-91,"k":"41f3f127e435"},{"r":505,"u":"k******od","p":0,"d":-90,"k":"9d28ff0fee7b"},{"r":506,"u":"T*******ly","p":0,"d":-87,"k":"2ff6475a02ed"},{"r":507,"u":"3*******33","p":0,"d":-71,"k":"363a2ae554bd"},{"r":508,"u":"V***********95","p":0,"d":-91,"k":"3688c3c9b66a"},{"r":509,"u":"v********17","p":0,"d":48,"k":"d8ee0699cd12"},{"r":510,"u":"c*******77","p":0,"d":null,"k":"7589f1f86f7b"},{"r":511,"u":"k*****04","p":0,"d":-90,"k":"e771a826e4ec"},{"r":512,"u":"A**********71","p":0,"d":-90,"k":"221547877079"},{"r":513,"u":"c***dy","p":0,"d":-90,"k":"07ac5a631cde"},{"r":514,"u":"H********17","p":0,"d":-90,"k":"2082413bb563"},{"r":515,"u":"G*******05","p":0,"d":-90,"k":"8a093d29215a"},{"r":516,"u":"l*******th","p":0,"d":-82,"k":"58dcd7ee9406"},{"r":517,"u":"M********23","p":0,"d":-91,"k":"ba632f06e940"},{"r":518,"u":"j*******le","p":0,"d":226,"k":"8630a6fe7643"},{"r":519,"u":"u*********73","p":0,"d":146,"k":"14e839302d54"},{"r":520,"u":"t*********ro","p":0,"d":null,"k":"24bf631e1cd8"},{"r":521,"u":"T***********12","p":0,"d":null,"k":"cdf0b3ddd086"},{"r":522,"u":"w********88","p":0,"d":22,"k":"dc4bf0f002f5"},{"r":523,"u":"E*****ai","p":0,"d":-96,"k":"b02a9b186e4b"},{"r":524,"u":"C*********64","p":0,"d":-96,"k":"d5612fe3e52a"},{"r":525,"u":"L********15","p":0,"d":25,"k":"ea40b9307341"},{"r":526,"u":"w***27","p":0,"d":-97,"k":"6ee284ab8b19"},{"r":527,"u":"M****ns","p":0,"d":-97,"k":"ada9a5923092"},{"r":528,"u":"T**********22","p":0,"d":61,"k":"423d7bd92fd1"},{"r":529,"u":"a********em","p":0,"d":-94,"k":"c5e449b5f671"},{"r":530,"u":"I******12","p":0,"d":null,"k":"d93b3a4ec0fe"},{"r":531,"u":"n******da","p":0,"d":-94,"k":"a2c7ecd89600"},{"r":532,"u":"e*************93","p":0,"d":null,"k":"abfb0441d044"},{"r":533,"u":"u*********02","p":0,"d":-95,"k":"575feb595caf"},{"r":534,"u":"A***********01","p":0,"d":-95,"k":"381cb48b9e13"},{"r":535,"u":"D****fo","p":0,"d":-95,"k":"cb1802f82a24"},{"r":536,"u":"D********32","p":0,"d":-71,"k":"7e40911fdaf3"},{"r":537,"u":"Q*******18","p":0,"d":-94,"k":"fb7f7fb32d43"},{"r":538,"u":"t*******ea","p":0,"d":-50,"k":"2a07cf614fa6"},{"r":539,"u":"b****al","p":0,"d":-94,"k":"962f97600500"},{"r":540,"u":"k******pp","p":0,"d":345,"k":"0fa185901355"},{"r":541,"u":"c*******jr","p":0,"d":null,"k":"88916429eb95"},{"r":542,"u":"c****68","p":0,"d":-95,"k":"58f88daa135d"},{"r":543,"u":"m*****2v","p":0,"d":-94,"k":"cf4cbc1da6f6"},{"r":544,"u":"C******13","p":0,"d":-73,"k":"bf8ca4a008ba"},{"r":545,"u":"u*********96","p":0,"d":-95,"k":"6cf32f2f70d4"},{"r":546,"u":"w******91","p":0,"d":-13,"k":"8624ea9565ff"},{"r":547,"u":"T*******14","p":0,"d":-96,"k":"130554c10130"},{"r":548,"u":"j****88","p":0,"d":-96,"k":"b80c69a806c3"},{"r":549,"u":"d*********l3","p":0,"d":-40,"k":"0ebf162a16e9"},{"r":550,"u":"A**********24","p":0,"d":-58,"k":"87c06961beaa"},{"r":551,"u":"R******31","p":0,"d":null,"k":"b60af4110107"},{"r":552,"u":"r*********ve","p":0,"d":-96,"k":"2f70d3b06807"},{"r":553,"u":"d***xx","p":0,"d":-96,"k":"3f15333330e1"},{"r":554,"u":"R***********02","p":0,"d":null,"k":"46d047dfd0b1"},{"r":555,"u":"A*********11","p":0,"d":-53,"k":"331a492045f5"},{"r":556,"u":"j******ll","p":0,"d":-97,"k":"0a01b7b1a028"},{"r":557,"u":"b*******18","p":0,"d":-97,"k":"5378d8de5e74"},{"r":558,"u":"N*******ic","p":0,"d":-97,"k":"fdb2cbefdaf7"},{"r":559,"u":"B************25","p":0,"d":-97,"k":"fbaffaa913a1"},{"r":560,"u":"B************27","p":0,"d":-96,"k":"b8bdecaf5f57"},{"r":561,"u":"k**********1k","p":0,"d":-98,"k":"faa9801ac6f6"},{"r":562,"u":"t*********69","p":0,"d":-49,"k":"021ae756dda2"},{"r":563,"u":"L*****88","p":0,"d":-96,"k":"7b8c47878acf"},{"r":564,"u":"e***uz","p":0,"d":-96,"k":"e96a6a584096"},{"r":565,"u":"J****an","p":0,"d":-95,"k":"6a17609addda"},{"r":566,"u":"l****69","p":0,"d":-93,"k":"d3ea6c329247"},{"r":567,"u":"T******14","p":0,"d":-93,"k":"48a7fc8ccaa7"},{"r":568,"u":"R******de","p":0,"d":107,"k":"9ad6be41b542"},{"r":569,"u":"j*****an","p":0,"d":-91,"k":"aeecdcc23f86"},{"r":570,"u":"t************48","p":0,"d":-74,"k":"6768e73b9094"},{"r":571,"u":"k*****bm","p":0,"d":113,"k":"ae659ac7796d"},{"r":572,"u":"c*****32","p":0,"d":-93,"k":"1094160e9955"},{"r":573,"u":"D********22","p":0,"d":-73,"k":"cc331d4525b6"},{"r":574,"u":"s****04","p":0,"d":-94,"k":"bff03144afd0"},{"r":575,"u":"C*******er","p":0,"d":null,"k":"cc3d88a75377"},{"r":576,"u":"j*****nn","p":0,"d":-93,"k":"849552aebf9b"},{"r":577,"u":"B*********00","p":0,"d":198,"k":"ecd793b6f4fe"},{"r":578,"u":"O********go","p":0,"d":-92,"k":"5311527e75a7"},{"r":579,"u":"s****an","p":0,"d":-92,"k":"89b713021d99"},{"r":580,"u":"S**********94","p":0,"d":null,"k":"38eeb2cf3a43"},{"r":581,"u":"b*********67","p":0,"d":-75,"k":"5cdc420767f8"},{"r":582,"u":"u*********01","p":0,"d":-44,"k":"604784a611d9"},{"r":583,"u":"e****01","p":0,"d":21,"k":"b5a14bb5a7ec"},{"r":584,"u":"e***ro","p":0,"d":-35,"k":"99d39aaddd47"},{"r":585,"u":"S**********rd","p":0,"d":-95,"k":"78da29048ced"},{"r":586,"u":"R*********gh","p":0,"d":-68,"k":"0775fbdd45b7"},{"r":587,"u":"C******nz","p":0,"d":-6,"k":"21220b809762"},{"r":588,"u":"T********23","p":0,"d":6,"k":"ace2716e43fb"},{"r":589,"u":"V*******ez","p":0,"d":-100,"k":"2e4988b1afaf"},{"r":590,"u":"S*****21","p":0,"d":-82,"k":"b334c309876b"},{"r":591,"u":"T********05","p":0,"d":-100,"k":"677e733a5e57"},{"r":592,"u":"O****44","p":0,"d":null,"k":"a2888135fa0f"},{"r":593,"u":"J******93","p":0,"d":-100,"k":"fcbf8952c67a"},{"r":594,"u":"1******re","p":0,"d":-100,"k":"60766b402b55"},{"r":595,"u":"s*****ii","p":0,"d":-98,"k":"e13d3b21f0a6"},{"r":596,"u":"a*******20","p":0,"d":-98,"k":"603c45b28d22"},{"r":597,"u":"C******01","p":0,"d":-98,"k":"cea9191d02b7"},{"r":598,"u":"B******ck","p":0,"d":null,"k":"4665c8e16e56"},{"r":599,"u":"T*****00","p":0,"d":-29,"k":"9ab6bd5dc812"},{"r":600,"u":"l******ld","p":0,"d":-10,"k":"5b8bf71e193a"},{"r":601,"u":"j*******29","p":0,"d":-100,"k":"bf872a39b4d4"},{"r":602,"u":"c********25","p":0,"d":-98,"k":"e5504a1e1821"},{"r":603,"u":"p******ae","p":0,"d":-98,"k":"a96b946f2837"},{"r":604,"u":"j******14","p":0,"d":null,"k":"0f809744dbfc"},{"r":605,"u":"H***im","p":0,"d":-98,"k":"04d713472758"},{"r":606,"u":"e***an","p":0,"d":-58,"k":"569604e85716"},{"r":607,"u":"t*****47","p":0,"d":70,"k":"4432eb8178eb"},{"r":608,"u":"K*****n1","p":0,"d":65,"k":"c284c67ea602"},{"r":609,"u":"c******n7","p":0,"d":-99,"k":"b1ebb88d170a"},{"r":610,"u":"d***15","p":0,"d":-99,"k":"9e9e6f11846d"},{"r":611,"u":"L*******ar","p":0,"d":-99,"k":"649d835cda97"},{"r":612,"u":"u*********65","p":0,"d":-98,"k":"fdb07bb0630f"},{"r":613,"u":"j*******er","p":0,"d":-98,"k":"35b7e71ea548"},{"r":614,"u":"J******26","p":0,"d":-67,"k":"ea931c2ad53a"},{"r":615,"u":"D*****e5","p":0,"d":-99,"k":"2f281fe0892a"},{"r":616,"u":"B***********15","p":0,"d":-99,"k":"bc0ecea829a8"},{"r":617,"u":"b*******08","p":0,"d":null,"k":"4c350bf77407"},{"r":618,"u":"l*****13","p":0,"d":null,"k":"58cfcc818081"},{"r":619,"u":"a***lk","p":0,"d":null,"k":"65a9c5d25974"},{"r":620,"u":"j************05","p":0,"d":-100,"k":"31ab0e6504cc"},{"r":621,"u":"S*****08","p":0,"d":null,"k":"7e54d93acac7"},{"r":622,"u":"M****15","p":0,"d":-100,"k":"f6d9d8ad1e08"},{"r":623,"u":"s******17","p":0,"d":-99,"k":"cc6dd9208027"},{"r":624,"u":"j*****er","p":0,"d":-99,"k":"ce80660c1037"},{"r":625,"u":"t****er","p":0,"d":-56,"k":"a2068bb22f54"},{"r":626,"u":"y******22","p":0,"d":-100,"k":"395467dd6ced"},{"r":627,"u":"T*********77","p":0,"d":null,"k":"ee807341c9e8"},{"r":628,"u":"O*******an","p":0,"d":null,"k":"2a3214208784"},{"r":629,"u":"J*****77","p":0,"d":-101,"k":"b5e615063966"},{"r":630,"u":"D***********78","p":0,"d":null,"k":"4c9d06ce72a4"},{"r":631,"u":"G*********es","p":0,"d":-102,"k":"57b108cd6837"},{"r":632,"u":"n*****CS","p":0,"d":-101,"k":"99bae6e0d19c"},{"r":633,"u":"P****13","p":0,"d":-101,"k":"b93466919260"},{"r":634,"u":"C*****07","p":0,"d":-100,"k":"2d7fe8a48212"},{"r":635,"u":"u*********58","p":0,"d":null,"k":"74f0f7bd0dd5"},{"r":636,"u":"u*********64","p":0,"d":-101,"k":"39b688917b41"},{"r":637,"u":"n**********en","p":0,"d":50,"k":"5878573bf5f8"},{"r":638,"u":"t***********ch","p":0,"d":-102,"k":"8498dbfd28a6"},{"r":639,"u":"o*****rm","p":0,"d":2,"k":"a5483741c6d8"},{"r":640,"u":"B******27","p":0,"d":-44,"k":"9a992af67434"},{"r":641,"u":"j***********ts","p":0,"d":-104,"k":"11d0729fe5cb"},{"r":642,"u":"b*****78","p":0,"d":116,"k":"1daec042d73d"},{"r":643,"u":"e****s7","p":0,"d":-101,"k":"fe4e441f4f78"},{"r":644,"u":"S******o1","p":0,"d":null,"k":"43870508e036"},{"r":645,"u":"u*********36","p":0,"d":-105,"k":"5f9bc66b5695"},{"r":646,"u":"c***25","p":0,"d":-105,"k":"539fa6da1df5"},{"r":647,"u":"g*******25","p":0,"d":-104,"k":"f0c6240195cd"},{"r":648,"u":"G***eb","p":0,"d":-103,"k":"a1147367e4c6"},{"r":649,"u":"L*****94","p":0,"d":130,"k":"484c5cb7225d"},{"r":650,"u":"B***********xx","p":0,"d":-99,"k":"77cd23f7ca06"},{"r":651,"u":"F********64","p":0,"d":null,"k":"f4136668e063"},{"r":652,"u":"E*****er","p":0,"d":288,"k":"286d5c136a89"},{"r":653,"u":"u*********99","p":0,"d":185,"k":"3ee7f587ad37"},{"r":654,"u":"S********06","p":0,"d":-102,"k":"92f87f87fd04"},{"r":655,"u":"1*********23","p":0,"d":-102,"k":"866853b6f326"},{"r":656,"u":"p*************48","p":0,"d":null,"k":"fa33f156879a"},{"r":657,"u":"Z*********21","p":0,"d":null,"k":"44643a386bd8"},{"r":658,"u":"P*********98","p":0,"d":-104,"k":"bc8f45203982"},{"r":659,"u":"B*******un","p":0,"d":-104,"k":"8225bdba454f"},{"r":660,"u":"p*************69","p":0,"d":null,"k":"48cb32a2e0ec"},{"r":661,"u":"M******17","p":0,"d":null,"k":"ef2d00d95738"},{"r":662,"u":"Z******93","p":0,"d":null,"k":"2cfb0f0e9cf7"},{"r":663,"u":"E****42","p":0,"d":-107,"k":"6af6d2989502"},{"r":664,"u":"S*********ot","p":0,"d":229,"k":"797f7a91b221"},{"r":665,"u":"b*******55","p":0,"d":-81,"k":"3d6f64b6ff41"},{"r":666,"u":"z***im","p":0,"d":-108,"k":"96077f4d8339"},{"r":667,"u":"r****do","p":0,"d":-60,"k":"2e61e083cb8f"},{"r":668,"u":"C**********23","p":0,"d":-66,"k":"a1a84aa107ac"},{"r":669,"u":"b******41","p":0,"d":-110,"k":"1baab7b9289a"},{"r":670,"u":"l*****al","p":0,"d":-110,"k":"aa529cfe28be"},{"r":671,"u":"g******5!","p":0,"d":-16,"k":"6b70587409bd"},{"r":672,"u":"o********10","p":0,"d":-111,"k":"281f002acc69"},{"r":673,"u":"D*****sh","p":0,"d":-111,"k":"1a94f2af1702"},{"r":674,"u":"G***********28","p":0,"d":-111,"k":"06d5346e1498"},{"r":675,"u":"T***********83","p":0,"d":189,"k":"05e598e7865a"},{"r":676,"u":"j******24","p":0,"d":-112,"k":"756228b57938"},{"r":677,"u":"J*********le","p":0,"d":-49,"k":"0c52cd21960a"},{"r":678,"u":"i**********me","p":0,"d":-113,"k":"dd1b94f4526d"},{"r":679,"u":"S*****10","p":0,"d":-113,"k":"5aca5174babe"},{"r":680,"u":"g****st","p":0,"d":-112,"k":"31abc7aca899"},{"r":681,"u":"h*******tz","p":0,"d":-110,"k":"64e225f2394f"},{"r":682,"u":"d********19","p":0,"d":-110,"k":"81bdf268d50e"},{"r":683,"u":"J***Bo","p":0,"d":-110,"k":"35d6227ad3a6"},{"r":684,"u":"V*****ba","p":0,"d":-76,"k":"0e35b9e26ae9"},{"r":685,"u":"i*****p3","p":0,"d":-111,"k":"e4237803188f"},{"r":686,"u":"o*******in","p":0,"d":42,"k":"03ef3c25fc55"},{"r":687,"u":"J******11","p":0,"d":-112,"k":"3aee736923ad"},{"r":688,"u":"K****nG","p":0,"d":173,"k":"aa6698c983a0"},{"r":689,"u":"m********20","p":0,"d":-113,"k":"b1044ae309f7"},{"r":690,"u":"B***********56","p":0,"d":-113,"k":"c7a7c935df43"},{"r":691,"u":"M**********a_","p":0,"d":3,"k":"41175ae301e8"},{"r":692,"u":"x********or","p":0,"d":null,"k":"1e0caa506cd5"},{"r":693,"u":"u*********87","p":0,"d":null,"k":"2e8cf6f5315e"},{"r":694,"u":"h**********03","p":0,"d":-116,"k":"8b2d86d41ab2"},{"r":695,"u":"Q*********32","p":0,"d":-116,"k":"9d89b0a8926f"},{"r":696,"u":"d****lk","p":0,"d":-78,"k":"8570e1dcc2df"},{"r":697,"u":"D*********ed","p":0,"d":-117,"k":"e088ee2d1f06"},{"r":698,"u":"1*******as","p":0,"d":-116,"k":"b72bea614cbd"},{"r":699,"u":"l***xp","p":0,"d":-116,"k":"64a6af8a7520"},{"r":700,"u":"j******99","p":0,"d":-18,"k":"10da8cf9e768"},{"r":701,"u":"l****12","p":0,"d":-53,"k":"609cbbf47b31"},{"r":702,"u":"M********86","p":0,"d":-117,"k":"46c1fc7cc906"},{"r":703,"u":"N*********22","p":0,"d":-117,"k":"b0c5ab0eadc1"},{"r":704,"u":"r*****an","p":0,"d":-35,"k":"21aff166d9d0"},{"r":705,"u":"s******k7","p":0,"d":-118,"k":"87d8198f2458"},{"r":706,"u":"A******21","p":0,"d":-118,"k":"42d69aa8b30b"},{"r":707,"u":"N**********ip","p":0,"d":-102,"k":"90eb2bbdc03d"},{"r":708,"u":"n*********oz","p":0,"d":-117,"k":"caa1bcf80a82"},{"r":709,"u":"N********es","p":0,"d":-117,"k":"9764e0eed46e"},{"r":710,"u":"n****ps","p":0,"d":-117,"k":"c598cab2cd0a"},{"r":711,"u":"A******18","p":0,"d":-99,"k":"d24fbd231db4"},{"r":712,"u":"j*****97","p":0,"d":-117,"k":"29f58338c5ca"},{"r":713,"u":"F********90","p":0,"d":-116,"k":"ef5887711ed9"},{"r":714,"u":"H********ra","p":0,"d":197,"k":"3b14e9746695"},{"r":715,"u":"e***oo","p":0,"d":-117,"k":"0a619b877ff4"},{"r":716,"u":"p*****ey","p":0,"d":null,"k":"f8de158f4e21"},{"r":717,"u":"x**********eR","p":0,"d":-118,"k":"804d9e9ceea0"},{"r":718,"u":"G*****56","p":0,"d":-118,"k":"036c8d1cdcae"},{"r":719,"u":"h***90","p":0,"d":244,"k":"6309feae66a6"},{"r":720,"u":"p******20","p":0,"d":-85,"k":"c8b5fcf78808"},{"r":721,"u":"M*******79","p":0,"d":66,"k":"dc9e4ab91b61"},{"r":722,"u":"B****ts","p":0,"d":-121,"k":"be25480e7cde"},{"r":723,"u":"Y*****23","p":0,"d":-61,"k":"0271bd4c1e13"},{"r":724,"u":"z*******37","p":0,"d":-121,"k":"32abeb440d3f"},{"r":725,"u":"H***********20","p":0,"d":-119,"k":"422f53fb945e"},{"r":726,"u":"b***ny","p":0,"d":140,"k":"d52f6e7fc299"},{"r":727,"u":"C*****14","p":0,"d":173,"k":"4189dbe4ce70"},{"r":728,"u":"L*****ws","p":0,"d":-119,"k":"c5364e80cde6"},{"r":729,"u":"t*******an","p":0,"d":-119,"k":"35d215ce4b9d"},{"r":730,"u":"S*******20","p":0,"d":-119,"k":"75eb099977a9"},{"r":731,"u":"u*********47","p":0,"d":-117,"k":"9c493500a34e"},{"r":732,"u":"N****er","p":0,"d":-116,"k":"dbcc75aef310"},{"r":733,"u":"M****10","p":0,"d":-116,"k":"656972bc33c8"},{"r":734,"u":"G****57","p":0,"d":-115,"k":"3b226490d084"},{"r":735,"u":"P***in","p":0,"d":-115,"k":"f43879a438b5"},{"r":736,"u":"b*******21","p":0,"d":-64,"k":"66b9da79adc7"},{"r":737,"u":"8*****ks","p":0,"d":-115,"k":"d8b0b88c97de"},{"r":738,"u":"N*********i8","p":0,"d":-115,"k":"ca6c824fcbb3"},{"r":739,"u":"D***ne","p":0,"d":-115,"k":"49a8fee7670a"},{"r":740,"u":"A*****_k","p":0,"d":null,"k":"ed7a1367092d"},{"r":741,"u":"o******og","p":0,"d":null,"k":"0d2de73b17c4"},{"r":742,"u":"z*****10","p":0,"d":-117,"k":"9a86c283d4bc"},{"r":743,"u":"A*****yn","p":0,"d":-117,"k":"62a0807686d7"},{"r":744,"u":"b********me","p":0,"d":-117,"k":"8abd56362a9a"},{"r":745,"u":"J*****33","p":0,"d":-116,"k":"77065ab0bc76"},{"r":746,"u":"r*****oy","p":0,"d":-116,"k":"1bd986c80e29"},{"r":747,"u":"v******19","p":0,"d":-116,"k":"bc4c09891175"},{"r":748,"u":"b********la","p":0,"d":-116,"k":"0e1d2d9436d0"},{"r":749,"u":"P********18","p":0,"d":-116,"k":"463335020c4c"},{"r":750,"u":"m******ld","p":0,"d":null,"k":"55ca9b382701"},{"r":751,"u":"A************34","p":0,"d":-99,"k":"a5bccf821512"},{"r":752,"u":"R*********05","p":0,"d":-53,"k":"ecd9095ddf4e"},{"r":753,"u":"D***13","p":0,"d":-119,"k":"87ff7e9ac575"},{"r":754,"u":"s*****25","p":0,"d":-117,"k":"bf1077147c8d"},{"r":755,"u":"e**********07","p":0,"d":-117,"k":"8445d005fbad"},{"r":756,"u":"A***d8","p":0,"d":-117,"k":"8487078218dc"},{"r":757,"u":"S*****20","p":0,"d":-46,"k":"bd8d95a543c3"},{"r":758,"u":"k*******up","p":0,"d":-118,"k":"a86bb268d7ea"},{"r":759,"u":"C*******29","p":0,"d":null,"k":"d7aa6b355035"},{"r":760,"u":"O****ks","p":0,"d":-118,"k":"4c26b7e6cd63"},{"r":761,"u":"t******ch","p":0,"d":-118,"k":"3dab21096290"},{"r":762,"u":"T******ay","p":0,"d":-118,"k":"ca46773edb97"},{"r":763,"u":"V**********81","p":0,"d":null,"k":"147dcf6e239e"},{"r":764,"u":"S*********14","p":0,"d":-119,"k":"7ea45ca369ca"},{"r":765,"u":"s*********an","p":0,"d":-69,"k":"fd0afa63def4"},{"r":766,"u":"J******15","p":0,"d":-120,"k":"04e9e01413ea"},{"r":767,"u":"m****hm","p":0,"d":138,"k":"407da91e1a5d"},{"r":768,"u":"b********d8","p":0,"d":-112,"k":"37f892f34695"},{"r":769,"u":"B******29","p":0,"d":-122,"k":"81c77d49a974"},{"r":770,"u":"0********25","p":0,"d":-121,"k":"7f775949aadc"},{"r":771,"u":"i*****ie","p":0,"d":-82,"k":"c49e4f479169"},{"r":772,"u":"P******27","p":0,"d":-121,"k":"481085f95d36"},{"r":773,"u":"S***************24","p":0,"d":-19,"k":"134b3cab757f"},{"r":774,"u":"S*****99","p":0,"d":null,"k":"7daf38a8511c"},{"r":775,"u":"s************ey","p":0,"d":-122,"k":"41169da860f3"},{"r":776,"u":"p*****hn","p":0,"d":-122,"k":"6a73391cb85e"},{"r":777,"u":"n*****le","p":0,"d":-120,"k":"c67dfa0022c1"},{"r":778,"u":"T****os","p":0,"d":-120,"k":"210eeaa15318"},{"r":779,"u":"w*******op","p":0,"d":-119,"k":"60ee2f0b2468"},{"r":780,"u":"o***nn","p":0,"d":-25,"k":"c4ba8dbe0a94"},{"r":781,"u":"R***yN","p":0,"d":-84,"k":"2205c54f7935"},{"r":782,"u":"L****93","p":0,"d":null,"k":"b04f34392174"},{"r":783,"u":"v********ng","p":0,"d":-122,"k":"8dda2bc9279f"},{"r":784,"u":"E************53","p":0,"d":-121,"k":"42cc9e8f69a6"},{"r":785,"u":"M******us","p":0,"d":-121,"k":"1671d9cc4453"},{"r":786,"u":"D*******06","p":0,"d":-120,"k":"5fd36a2cfe28"},{"r":787,"u":"t**************05","p":0,"d":null,"k":"8fdb99ffa6a7"},{"r":788,"u":"D************68","p":0,"d":-121,"k":"fa7ff6f1db6e"},{"r":789,"u":"T********23","p":0,"d":-121,"k":"fdbfa151292b"},{"r":790,"u":"d*******ks","p":0,"d":-120,"k":"fc87906005f3"},{"r":791,"u":"m*******ll","p":0,"d":-120,"k":"56d0aab8c78f"},{"r":792,"u":"M*******us","p":0,"d":-82,"k":"545f871d0eda"},{"r":793,"u":"S********67","p":0,"d":47,"k":"aa6d75308ce3"},{"r":794,"u":"i********ts","p":0,"d":null,"k":"a3f64602e7bc"},{"r":795,"u":"b******18","p":0,"d":null,"k":"b96ccb234fed"},{"r":796,"u":"p*******90","p":0,"d":16,"k":"71f8b9f5da40"},{"r":797,"u":"g*******50","p":0,"d":-81,"k":"d2d616081b90"},{"r":798,"u":"L*********08","p":0,"d":-124,"k":"ca361560f963"},{"r":799,"u":"g*******el","p":0,"d":null,"k":"609594384e1b"},{"r":800,"u":"d****ii","p":0,"d":-119,"k":"dfc4a782e0b1"},{"r":801,"u":"G*****LE","p":0,"d":-125,"k":"3980eb03bf97"},{"r":802,"u":"S*****23","p":0,"d":-124,"k":"bf8547675f8f"},{"r":803,"u":"k******y7","p":0,"d":-124,"k":"c286ed7e6ec7"},{"r":804,"u":"b*******95","p":0,"d":null,"k":"ffb47bed9b5b"},{"r":805,"u":"C****49","p":0,"d":-125,"k":"d983e680cd08"},{"r":806,"u":"W********46","p":0,"d":null,"k":"86afc162cb66"},{"r":807,"u":"B*****ck","p":0,"d":-119,"k":"7753c086c637"},{"r":808,"u":"j******m2","p":0,"d":55,"k":"050d9cdd31d7"},{"r":809,"u":"D*****17","p":0,"d":-126,"k":"55cd25459a77"},{"r":810,"u":"u*********61","p":0,"d":-51,"k":"dd6b4f70d961"},{"r":811,"u":"j******33","p":0,"d":-126,"k":"acc31c9188b6"},{"r":812,"u":"A****le","p":0,"d":null,"k":"148d779cf06e"},{"r":813,"u":"b*****aa","p":0,"d":62,"k":"ee59d71c6c29"},{"r":814,"u":"C**********90","p":0,"d":null,"k":"39108bb32653"},{"r":815,"u":"s***up","p":0,"d":91,"k":"c34616692f54"},{"r":816,"u":"A********OU","p":0,"d":-126,"k":"94bb5f86bab6"},{"r":817,"u":"1******ob","p":0,"d":-126,"k":"8e8c350bf109"},{"r":818,"u":"r*****80","p":0,"d":-70,"k":"07c1f83ed151"},{"r":819,"u":"b***********13","p":0,"d":null,"k":"5eff632961a7"},{"r":820,"u":"m******ni","p":0,"d":-114,"k":"4e8a0fdf55b6"},{"r":821,"u":"c******49","p":0,"d":-128,"k":"0438c2f61246"},{"r":822,"u":"S*********14","p":0,"d":-127,"k":"cd9ad7ec43f2"},{"r":823,"u":"g******61","p":0,"d":null,"k":"85ad1f039af2"},{"r":824,"u":"j*****************et","p":0,"d":-124,"k":"fb55a69b6162"},{"r":825,"u":"u*********54","p":0,"d":-124,"k":"4641d73dc54d"},{"r":826,"u":"v*****50","p":0,"d":null,"k":"06f5f1ba2c40"},{"r":827,"u":"C****17","p":0,"d":-89,"k":"64faef34de9e"},{"r":828,"u":"I************un","p":0,"d":-81,"k":"e89c5ddf8a2e"},{"r":829,"u":"v*******46","p":0,"d":-126,"k":"cb0a9db71b70"},{"r":830,"u":"s******19","p":0,"d":-126,"k":"b1d5a41e83f6"},{"r":831,"u":"Z*********74","p":0,"d":null,"k":"09403e6d384c"},{"r":832,"u":"f*****16","p":0,"d":-127,"k":"8e8d28ec7ffe"},{"r":833,"u":"F********ll","p":0,"d":-126,"k":"92d5c0bd5e44"},{"r":834,"u":"d****47","p":0,"d":-126,"k":"f9ebc35a5b0c"},{"r":835,"u":"C*****Ky","p":0,"d":-126,"k":"e400b2cc2f46"},{"r":836,"u":"d*****vy","p":0,"d":-124,"k":"b37887538fed"},{"r":837,"u":"l***07","p":0,"d":null,"k":"4fe3fad03a54"},{"r":838,"u":"Z*****ty","p":0,"d":-67,"k":"c7aa48315a8f"},{"r":839,"u":"b******ih","p":0,"d":-126,"k":"8b0529131954"},{"r":840,"u":"J********93","p":0,"d":-126,"k":"825fcc43f3a2"},{"r":841,"u":"D******in","p":0,"d":-126,"k":"b2c3f010f02c"},{"r":842,"u":"K******41","p":0,"d":-68,"k":"4ac520eb0ac9"},{"r":843,"u":"C*******83","p":0,"d":-126,"k":"96e1d7db1cea"},{"r":844,"u":"T***30","p":0,"d":-126,"k":"598f165a3d4b"},{"r":845,"u":"b*****************67","p":0,"d":-126,"k":"e1e05a08d075"},{"r":846,"u":"j****13","p":0,"d":48,"k":"4efa5f1bf654"},{"r":847,"u":"j*********02","p":0,"d":null,"k":"60f6dafa7dcd"},{"r":848,"u":"b****04","p":0,"d":-128,"k":"a4a8c6e1bf4a"},{"r":849,"u":"r***24","p":0,"d":-127,"k":"ff3913163575"},{"r":850,"u":"c****rs","p":0,"d":-127,"k":"0d5c1852ffc2"},{"r":851,"u":"H*******ds","p":0,"d":-127,"k":"117bc082187a"},{"r":852,"u":"L****22","p":0,"d":-127,"k":"32e5e9dcfa97"},{"r":853,"u":"p*****ol","p":0,"d":-127,"k":"672a3319472d"},{"r":854,"u":"P************59","p":0,"d":-127,"k":"648ca669d908"},{"r":855,"u":"k*******ii","p":0,"d":-11,"k":"93337dedc31a"},{"r":856,"u":"P********in","p":0,"d":null,"k":"75c94838c70f"},{"r":857,"u":"P**********99","p":0,"d":-127,"k":"0f1efb48266f"},{"r":858,"u":"f*******ss","p":0,"d":-127,"k":"668e7f42c7c2"},{"r":859,"u":"r***ps","p":0,"d":-127,"k":"eacd6eed9c0e"},{"r":860,"u":"k********11","p":0,"d":-127,"k":"6b36c278352e"},{"r":861,"u":"k*******04","p":0,"d":-126,"k":"857569d16e31"},{"r":862,"u":"s******************94","p":0,"d":-126,"k":"2739aaff3be5"},{"r":863,"u":"S*********86","p":0,"d":-126,"k":"fc497e315086"},{"r":864,"u":"m*******e1","p":0,"d":-115,"k":"e8d0c44d4840"},{"r":865,"u":"S*********67","p":0,"d":null,"k":"ac8b6b48a6f2"},{"r":866,"u":"J*******le","p":0,"d":-127,"k":"cf1096d51c0e"},{"r":867,"u":"S****er","p":0,"d":-127,"k":"9408485845ff"},{"r":868,"u":"m******ot","p":0,"d":-49,"k":"e491f0c16b8d"},{"r":869,"u":"b*****in","p":0,"d":-128,"k":"ebc404dacdc8"},{"r":870,"u":"B******yQ","p":0,"d":-128,"k":"3b8bc6756d00"},{"r":871,"u":"K****38","p":0,"d":null,"k":"07db83b8cf04"},{"r":872,"u":"i*********y6","p":0,"d":-110,"k":"a3f0e848c141"},{"r":873,"u":"u*********23","p":0,"d":-130,"k":"f0a02381f618"},{"r":874,"u":"t*******cs","p":0,"d":-19,"k":"dae45f4b8a93"},{"r":875,"u":"L*****c2","p":0,"d":-130,"k":"18792c5e1acf"},{"r":876,"u":"C***********47","p":0,"d":-130,"k":"abb5bd7601e2"},{"r":877,"u":"h*****ww","p":0,"d":null,"k":"94375b383d2b"},{"r":878,"u":"E******s1","p":0,"d":null,"k":"9426df58d767"},{"r":879,"u":"L******54","p":0,"d":-129,"k":"bf37f189dd6d"},{"r":880,"u":"c******************68","p":0,"d":22,"k":"62d2b37dd1c6"},{"r":881,"u":"Y***ay","p":0,"d":-130,"k":"d458e7b3ed1e"},{"r":882,"u":"T***93","p":0,"d":-96,"k":"f2b29d6782c0"},{"r":883,"u":"D****J2","p":0,"d":-130,"k":"6c44bd5a4265"},{"r":884,"u":"B*****97","p":0,"d":-128,"k":"95fe579551c5"},{"r":885,"u":"M*********k1","p":0,"d":-128,"k":"c5c27cf525c4"},{"r":886,"u":"l*******11","p":0,"d":-126,"k":"f5a9ee80a3c6"},{"r":887,"u":"K*******st","p":0,"d":-126,"k":"36c9b7cc3f5b"},{"r":888,"u":"j******20","p":0,"d":-125,"k":"c9262e88457c"},{"r":889,"u":"D*************01","p":0,"d":-35,"k":"02b627f587dc"},{"r":890,"u":"w***********ol","p":0,"d":-126,"k":"b95184ce67b9"},{"r":891,"u":"d****cy","p":0,"d":null,"k":"b64565059263"},{"r":892,"u":"K********ga","p":0,"d":-127,"k":"bbba2220a559"},{"r":893,"u":"J*****GB","p":0,"d":-127,"k":"1e084116ff44"},{"r":894,"u":"r************05","p":0,"d":null,"k":"4dbd86ac218a"},{"r":895,"u":"B*****01","p":0,"d":-128,"k":"c27d02a5b96f"},{"r":896,"u":"u*********73","p":0,"d":17,"k":"8c48c669051c"},{"r":897,"u":"S*******14","p":0,"d":-129,"k":"d9ac6bc1bb55"},{"r":898,"u":"b*****n7","p":0,"d":-129,"k":"b9ce4188f46b"},{"r":899,"u":"r******01","p":0,"d":-129,"k":"483738f9fabf"},{"r":900,"u":"g*****ay","p":0,"d":-128,"k":"af4318713d42"},{"r":901,"u":"T******11","p":0,"d":-128,"k":"fa72053bfbe7"},{"r":902,"u":"S************00","p":0,"d":-126,"k":"e73746adf155"},{"r":903,"u":"d**********07","p":0,"d":-126,"k":"ae926e80e14a"},{"r":904,"u":"w********96","p":0,"d":-126,"k":"1fa3c97bd71b"},{"r":905,"u":"D****************ks","p":0,"d":-109,"k":"7490ecb1d995"},{"r":906,"u":"h***er","p":0,"d":-126,"k":"95203caada9d"},{"r":907,"u":"J*********44","p":0,"d":-126,"k":"72c0cc8138d3"},{"r":908,"u":"R*********29","p":0,"d":-125,"k":"cf868e2a6fdf"},{"r":909,"u":"m**********18","p":0,"d":-125,"k":"cb04383c4f58"},{"r":910,"u":"M************ey","p":0,"d":-125,"k":"b8c819d36fc2"},{"r":911,"u":"K*************es","p":0,"d":-15,"k":"3f3bb9b1ffa4"},{"r":912,"u":"k******03","p":0,"d":-84,"k":"dd804b1627ab"},{"r":913,"u":"J***34","p":0,"d":-124,"k":"81dc991a879c"},{"r":914,"u":"l********at","p":0,"d":-124,"k":"613cb974184d"},{"r":915,"u":"K*******22","p":0,"d":-25,"k":"bf74833395e8"},{"r":916,"u":"s******ll","p":0,"d":-125,"k":"2db0c051753a"},{"r":917,"u":"s***u3","p":0,"d":-125,"k":"5fbad159b589"},{"r":918,"u":"C****ta","p":0,"d":-125,"k":"381408c5ea1a"},{"r":919,"u":"Z********60","p":0,"d":-125,"k":"84ecfedd3607"},{"r":920,"u":"S********67","p":0,"d":-125,"k":"b29dd8a03cad"},{"r":921,"u":"S*********18","p":0,"d":null,"k":"1032e9c84614"},{"r":922,"u":"b******r5","p":0,"d":-125,"k":"6933f07fd0df"},{"r":923,"u":"s******82","p":0,"d":-122,"k":"8dd49081f789"},{"r":924,"u":"b***********82","p":0,"d":-110,"k":"4eb50f99ee82"},{"r":925,"u":"g******25","p":0,"d":-127,"k":"7b1767269a19"},{"r":926,"u":"L***********89","p":0,"d":null,"k":"18aa11445c44"},{"r":927,"u":"S*********32","p":0,"d":-128,"k":"ce6806e4e2ff"},{"r":928,"u":"i*****r5","p":0,"d":null,"k":"893e867d44d5"},{"r":929,"u":"i*******33","p":0,"d":null,"k":"09da1b351ee4"},{"r":930,"u":"t******k3","p":0,"d":null,"k":"9a213e70e6cd"},{"r":931,"u":"m******01","p":0,"d":-131,"k":"b6fc06e27c8a"},{"r":932,"u":"T**********66","p":0,"d":null,"k":"e6208fd0d3ae"},{"r":933,"u":"a***********10","p":0,"d":-131,"k":"921bc83a21ef"},{"r":934,"u":"r*************94","p":0,"d":-131,"k":"03054515dc8c"},{"r":935,"u":"C*****29","p":0,"d":-131,"k":"4b446b8e0a38"},{"r":936,"u":"j*****22","p":0,"d":-131,"k":"0d0945782995"},{"r":937,"u":"F******ed","p":0,"d":-131,"k":"2c55b6c1e3dd"},{"r":938,"u":"k*****gy","p":0,"d":null,"k":"0b4e86a3dca8"},{"r":939,"u":"u*********34","p":0,"d":-132,"k":"3942d43e7912"},{"r":940,"u":"j************21","p":0,"d":null,"k":"8c92a10442c8"},{"r":941,"u":"n*****11","p":0,"d":-133,"k":"c9f6f08fa51c"},{"r":942,"u":"c******s4","p":0,"d":-133,"k":"b9a6cfaa9099"},{"r":943,"u":"J*****05","p":0,"d":-133,"k":"43fff873263e"},{"r":944,"u":"e********ne","p":0,"d":-129,"k":"1571ee488c11"},{"r":945,"u":"d*****23","p":0,"d":null,"k":"c537d6650b9c"},{"r":946,"u":"m******12","p":0,"d":-103,"k":"874bb1c69980"},{"r":947,"u":"U**********33","p":0,"d":-136,"k":"e6fe7ee1d9d1"},{"r":948,"u":"S**********10","p":0,"d":null,"k":"470c66fea25a"},{"r":949,"u":"B***********02","p":0,"d":-136,"k":"09b4d61ed56c"},{"r":950,"u":"m*******23","p":0,"d":-116,"k":"f1b25b06af0e"},{"r":951,"u":"m***********er","p":0,"d":null,"k":"82cbf92189a7"},{"r":952,"u":"b********o1","p":0,"d":-53,"k":"ca70f89c1c23"},{"r":953,"u":"j****ud","p":0,"d":-67,"k":"113d0ecd60a3"},{"r":954,"u":"A************22","p":0,"d":null,"k":"8682eb10a869"},{"r":955,"u":"I*************23","p":0,"d":-139,"k":"b4f94afd7eeb"},{"r":956,"u":"r***e5","p":0,"d":-139,"k":"fbbba9df7045"},{"r":957,"u":"j******17","p":0,"d":-139,"k":"4d1a3f1acec2"},{"r":958,"u":"B***ff","p":0,"d":-138,"k":"f5c88ac73ee7"},{"r":959,"u":"R********23","p":0,"d":-138,"k":"b6d390fc673f"},{"r":960,"u":"t******ve","p":0,"d":-138,"k":"4ac68dbfaa75"},{"r":961,"u":"e****a7","p":0,"d":-8,"k":"7829f689e5d3"},{"r":962,"u":"T******ty","p":0,"d":-139,"k":"cdd3446f6fab"},{"r":963,"u":"t***40","p":0,"d":-139,"k":"ff3238f973ed"},{"r":964,"u":"k*****09","p":0,"d":-139,"k":"82a7fe284a32"},{"r":965,"u":"S********00","p":0,"d":null,"k":"aa98e52e7c24"},{"r":966,"u":"u*********83","p":0,"d":-140,"k":"788cd302ea93"},{"r":967,"u":"c******82","p":0,"d":-140,"k":"a16695a4fd19"},{"r":968,"u":"b*********01","p":0,"d":-36,"k":"4ddee04677eb"},{"r":969,"u":"u*********23","p":0,"d":-112,"k":"f995fdcbfb91"},{"r":970,"u":"P*********97","p":0,"d":-141,"k":"8205d714c758"},{"r":971,"u":"A*********01","p":0,"d":null,"k":"9838b82ebc31"},{"r":972,"u":"d*****mp","p":0,"d":-142,"k":"8c5673b7bf22"},{"r":973,"u":"S*****ti","p":0,"d":-17,"k":"2178caaf7538"},{"r":974,"u":"C**********36","p":0,"d":-143,"k":"19d4f3c50b10"},{"r":975,"u":"D*******ll","p":0,"d":-142,"k":"35ced0eb04e2"},{"r":976,"u":"u*********03","p":0,"d":-141,"k":"8d1011489308"},{"r":977,"u":"e***ka","p":0,"d":-107,"k":"452043ee6e55"},{"r":978,"u":"b*********it","p":0,"d":-142,"k":"c5cb7927031d"},{"r":979,"u":"f****10","p":0,"d":-142,"k":"e8767ef1486e"},{"r":980,"u":"u*********55","p":0,"d":-141,"k":"c3830218e8bf"},{"r":981,"u":"W********ks","p":0,"d":-140,"k":"63b2e382e291"},{"r":982,"u":"z*******93","p":0,"d":-140,"k":"a00a5875017d"},{"r":983,"u":"w*****q1","p":0,"d":-127,"k":"36cca5007f30"},{"r":984,"u":"l******************59","p":0,"d":null,"k":"ed6fc4ef0fab"},{"r":985,"u":"s***la","p":0,"d":null,"k":"208accce00ee"},{"r":986,"u":"I**********78","p":0,"d":null,"k":"3d7d031606bf"},{"r":987,"u":"u*********74","p":0,"d":-138,"k":"1b97a65e06c3"},{"r":988,"u":"D********c1","p":0,"d":null,"k":"49b1b97876f1"},{"r":989,"u":"j*********35","p":0,"d":-143,"k":"5279fa0bbb62"},{"r":990,"u":"D***s1","p":0,"d":-143,"k":"0818542996c2"},{"r":991,"u":"T***it","p":0,"d":-143,"k":"e9b04e8cc657"},{"r":992,"u":"J*****_G","p":0,"d":-64,"k":"2ebee4d005a1"},{"r":993,"u":"M*****nn","p":0,"d":-143,"k":"aa474c26b33e"},{"r":994,"u":"C******ro","p":0,"d":-143,"k":"40f5d0b8896d"},{"r":995,"u":"u*********88","p":0,"d":-143,"k":"8f5a35f4694a"},{"r":996,"u":"M*******23","p":0,"d":-143,"k":"e5fcb68354d1"},{"r":997,"u":"p**********93","p":0,"d":-139,"k":"edf26b82a27b"},{"r":998,"u":"t*******31","p":0,"d":-139,"k":"679a193489ec"},{"r":999,"u":"K********97","p":0,"d":-139,"k":"09f43aaa527b"},{"r":1000,"u":"u*********77","p":0,"d":-138,"k":"bdd03119e29b"}];
+var TOTAL=1000;
+/* What to tell someone whose handle is not on the board. When the field
+   is bigger than the board, that is the likeliest reason, so say so
+   rather than implying they never played. */
+var CAPPED=TOTAL>ALL.length;
+var ABSENT=CAPPED
+  ? 'This board lists the top '+ALL.length.toLocaleString()+' of '+TOTAL.toLocaleString()+' players'
+  : 'Players appear after their first Gauntlet round';
+
+/* marquee */
+(function(){
+  var el=document.getElementById('mq');
+  if(!el)return;
+  /* 20,000 and 50 are filled from round.json at build time, so the
+     marquee cannot promise a pool or a place count the board does not pay. */
+  var words=['Thanksgiving Gauntlet','Live Standings','20,000 Bonus Onyx Cash','Top 50 Win','Ranked By Stake'];
+  var run='';
+  for(var k=0;k<2;k++){
+    run+='<span>';
+    for(var i=0;i<words.length;i++)run+=words[i]+'<i></i>';
+    run+='</span>';
+  }
+  el.innerHTML=run;
+})();
+
+var fil=ALL.slice(),sk='r',sd=1,pg=1,ps=25;
+/* Search by real username, without the page holding any real username.
+   Rows carry a digest of the handle; we hash what is typed the same way and
+   compare. The hash is async, so it is computed off to the side and kept in
+   QK, and the row filter below reads whatever QK currently holds. Typing a
+   whole handle therefore finds the row it is masked as, which plain text
+   matching against the mask never could. */
+var QK='',SALT='onyx-gauntlet:',SEQ=0;
+function digest(s){
+  if(!(window.crypto&&crypto.subtle&&crypto.subtle.digest))return Promise.resolve('');
+  return crypto.subtle.digest('SHA-256',new TextEncoder().encode(SALT+s))
+    .then(function(b){
+      var out='',v=new Uint8Array(b);
+      for(var i=0;i<6;i++)out+=('0'+v[i].toString(16)).slice(-2);
+      return out;
+    })['catch'](function(){return ''});
+}
+/* Could this masked handle be the name being typed?
+
+   The mask already shows three things about a username: its first character,
+   its last two, and its length. Matching what is typed against only those,
+   and letting the hidden middle match anything, narrows the board as someone
+   types their own name without putting a single new character on the page.
+
+   So "bb" keeps b***56 on screen, because the first letter agrees and the
+   second is hidden and cannot be ruled out, and each further character cuts
+   the list down. It is a could-be match, not proof: "bx" survives too. The
+   digest above is what identifies the row exactly once the whole name is in. */
+function couldBe(mask,q){
+  if(q.length>mask.length)return false;
+  for(var i=0;i<q.length;i++){
+    var m=mask.charAt(i);
+    if(m!=='*'&&m!==q.charAt(i))return false;
+  }
+  return true;
+}
+document.getElementById('q').addEventListener('input',function(){
+  pg=1;
+  var q=this.value.trim(),n=++SEQ;
+  render();
+  if(!q){QK='';return}
+  digest(q.toLowerCase()).then(function(h){
+    /* A slower hash from an earlier keystroke must not overwrite a newer one. */
+    if(n!==SEQ)return;
+    if(h!==QK){QK=h;render()}
+  });
+});
+document.getElementById('ps').addEventListener('change',function(e){ps=+e.target.value;pg=1;render()});
+function sb(k){sd=sk===k?-sd:(k==='r'?1:-1);sk=k;pg=1;render()}
+function go(d){var t=Math.max(1,Math.ceil(fil.length/ps));pg=Math.max(1,Math.min(t,pg+d));render()}
+
+/* movement cell: spots gained or lost since the previous update */
+function move(r){
+  if(r.d===null||r.d===undefined)return '<span class="mv nw">New</span>';
+  if(r.d>0)return '<span class="mv up"><s>&#9650;</s>'+r.d+'</span>';
+  if(r.d<0)return '<span class="mv dn"><s>&#9660;</s>'+(-r.d)+'</span>';
+  return '<span class="mv sm"><s>&ndash;</s></span>';
+}
+
+function render(){
+  var q=document.getElementById('q').value.trim().toLowerCase();
+  /* An exact username match wins outright: show that one row rather than
+     burying it among handles that happen to share letters. */
+  var hit=QK?ALL.filter(function(r){return r.k===QK}):[];
+  fil=hit.length?hit
+     :q?ALL.filter(function(r){
+          var m=r.u.toLowerCase();
+          /* the masked handle as shown, or the name it could be */
+          return m.indexOf(q)>=0||couldBe(m,q);
+        })
+     :ALL.slice();
+  fil.sort(function(a,b){
+    if(sk==='u')return a.u.localeCompare(b.u)*sd;
+    if(sk==='d'){
+      /* players with no previous rank sort last either way */
+      var av=(a.d===null||a.d===undefined)?null:a.d,bv=(b.d===null||b.d===undefined)?null:b.d;
+      if(av===null&&bv===null)return a.r-b.r;
+      if(av===null)return 1;
+      if(bv===null)return -1;
+      return (av-bv)*sd||a.r-b.r;
+    }
+    return (a[sk]-b[sk])*sd;
+  });
+  var tot=Math.max(1,Math.ceil(fil.length/ps)),st=(pg-1)*ps,sl=fil.slice(st,st+ps);
+  /* The typed name has been hashed and matches nobody, so it is not on this
+     round's board. Say so before the could-be list, or a full username that is
+     simply absent reads as a search that returned the wrong people. */
+  var raw=document.getElementById('q').value.trim();
+  var absent=!!(q&&QK&&!hit.length);
+  /* CAPPED boards list only the top ranks, so "not on the board" is not the
+     same as "did not play" and must not be worded as though it were. */
+  document.getElementById('show').textContent=(absent
+    ? 'No player named "'+raw+'" '+(CAPPED
+        ? 'in the top '+ALL.length.toLocaleString()
+        : 'on this round\'s board yet')
+      +(fil.length?' · '+fil.length.toLocaleString()+' handles could match':'')
+    : fil.length
+      ? 'Showing '+(st+1)+'–'+Math.min(st+ps,fil.length)+' of '+fil.length.toLocaleString()
+        +(CAPPED&&fil.length===ALL.length
+          ? ' listed · '+TOTAL.toLocaleString()+' players entered'
+          : ' players')
+      : '0 players');
+  ['r','d','u','p'].forEach(function(k){
+    var el=document.getElementById('h-'+k),lb={r:'Rank',d:'Move',u:'Player',p:'Prize'};
+    el.className=(k==='p'?'prize':'')+(sk===k?' on':'');
+    el.textContent=lb[k]+(sk===k?(sd===1?' ↑':' ↓'):'');
+  });
+  if(!fil.length){
+    document.getElementById('tb').innerHTML=(ALL.length
+      ? '<tr><td colspan="4"><div class="empty"><b>No matches</b><i>'+(absent?ABSENT:'No players found for that search')+'</i></div></td></tr>'
+      /* Nothing on the board at all: the round has not opened yet, which is
+         not the same as a search that found nobody. */
+      : '<tr><td colspan="4"><div class="empty"><b>Standings open soon</b><i>November 20 to 27, 2026</i></div></td></tr>');
+  }else{
+    document.getElementById('tb').innerHTML=sl.map(function(r){
+      var cls=r.r<=3?'t'+r.r:'';
+      var pz=r.p>0?'<span class="pz">'+r.p.toLocaleString()+'</span>':'<span class="pz0">&ndash;</span>';
+      return '<tr class="'+cls+'">'
+        +'<td><span class="rk">'+r.r+'</span></td>'
+        +'<td>'+move(r)+'</td>'
+        +'<td><span class="who">'+r.u+'</span></td>'
+        +'<td class="prize">'+pz+'</td></tr>';
+    }).join('');
+  }
+  document.getElementById('pi').textContent='Page '+pg+' of '+tot;
+  var b=document.querySelectorAll('.pages button');
+  b[0].disabled=pg<=1;b[1].disabled=pg>=tot;
+}
+
+(function(){
+  /* TOTAL is everyone the query returned. ALL is capped at the ranks the
+     page lists, so counting it would understate a big field.
+     The pool and the places come from the ladder at build time, not from the
+     rows: counting awarded rows reads 0 on a board whose round has not opened,
+     and understates any field smaller than the ladder. */
+  document.getElementById('sPlayers').textContent=TOTAL.toLocaleString();
+  document.getElementById('sPool').textContent='20,000';
+  document.getElementById('sPaid').textContent='50';
+})();
+
+render();
+</script>
+<script src="../onyx.js" defer></script>
+</body>
+</html>
