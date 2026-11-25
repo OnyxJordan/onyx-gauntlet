@@ -6,6 +6,22 @@
 <meta name="theme-color" content="#0e0a07">
 <title>Onyx Odds — Rips Rumble</title>
 <meta name="description" content="Live standings for the Onyx Rips Rumble.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Onyx Odds">
+<meta property="og:title" content="Onyx Odds &mdash; Rips Rumble">
+<meta property="og:description" content="Live standings for the Onyx Rips Rumble.">
+<meta property="og:url" content="https://onyxjordan.github.io/onyx-gauntlet/rumble/">
+<!-- Absolute, because an unfurler fetches it on its own and has no page to be
+     relative to. Without it Slack shows an empty grey box. -->
+<meta property="og:image" content="https://onyxjordan.github.io/onyx-gauntlet/og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Onyx Odds">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Onyx Odds &mdash; Rips Rumble">
+<meta name="twitter:description" content="Live standings for the Onyx Rips Rumble.">
+<meta name="twitter:image" content="https://onyxjordan.github.io/onyx-gauntlet/og.png">
 <link rel="stylesheet" href="../site.css">
 <style>
 /* Leaderboard page only. Everything shared with the homepage is in
@@ -134,7 +150,7 @@ tr.t1 .pz{background:var(--ox-purple);color:#241206}
   <!-- Full bleed: the ambient texture, and the surface the leaves cascade over.
        The turkey is its own canvas below so it is not lost behind the title. -->
   <canvas class="hero-art" data-ox-art="field" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".6"
-          data-ox-lens="0" aria-hidden="true"></canvas>
+          data-ox-lens="0" data-ox-cell="16" data-ox-idle="200" aria-hidden="true"></canvas>
   <!-- Leaves get their own canvas at full strength. Sharing the textured one
        meant the opacity that quietened the texture dimmed the leaves with it. -->
   <canvas class="hero-leaves" data-ox-art="none" data-ox-lens="0" data-ox-cell="9"
