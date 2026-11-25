@@ -102,7 +102,8 @@ degrades to masked handles only.
 | `home.html` | Homepage template |
 | `template.html` | Board-page template, with `__DATA__`, `__TITLE__`, `__NAV__` and the rest |
 | `site.css` | Everything the three pages share: tokens, header, tabs, hero, footer. **The theme lives here** |
-| `onyx.js` | The raster art engine: turkeys, leaves, the cascade that follows the pointer |
+| `onyx.js` | The raster art engine: turkeys, leaves, cards, the cascade that follows the pointer |
+| `tools/shape-grid.js` | Prints a shape as the ~13 cell grid it actually becomes. **Use it before judging any new shape**: three passes of card art looked right at 56 pixels and arrived as a blob |
 | `build.py` | Fetch, rank, mask, render every board plus the homepage. Standard library only |
 | `boards/<slug>.json` | One board: dates, ladder, copy, which snapshot row to read. **Adding a board is adding a file** |
 | `sql/<slug>.sql` | That board's ranking rule. One source of truth, shared with Retool via `--print-sql` |
