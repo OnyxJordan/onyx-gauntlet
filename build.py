@@ -55,6 +55,13 @@ HOME_OUT = ROOT / "index.html"
 # produced it. Adding a third board is adding a file, not editing this script.
 DEFAULT_BOARDS = ("gauntlet", "rumble")
 
+# Where this site is served from. Only the share-card tags need it: an
+# unfurler fetches og:image by itself and has nowhere to resolve a relative
+# path against, so those URLs have to be absolute. Everything the browser
+# loads stays relative, because the site sits on a project path rather than a
+# domain root.
+SITE = "https://onyxjordan.github.io/onyx-gauntlet/"
+
 
 def board_path(slug):
     return BOARDS / f"{slug}.json"
@@ -771,6 +778,8 @@ def render(names, cfg, when, deltas=None, template=TEMPLATE, stamp=None):
                                # Board pages sit one directory down, so
                                # the shared assets are reached relatively.
                                ("__UP__", here(cfg)),
+                               ("__SITE__", SITE),
+                               ("__OGURL__", SITE + f"{Path(cfg['out']).parent}/"),
                                ("__ROUND__", round_line(cfg)),
                                # Counted from the ladder rather than written out,
                                # so the terms cannot promise a different number of
@@ -892,6 +901,8 @@ def write_home(built):
                                ("__POOL__", f"{pool:,}"),
                                ("__COUNT__", count),
                                ("__UPDATED__", updated_line(when)),
+                               ("__SITE__", SITE),
+                               ("__OGURL__", SITE),
                                ("__WORDS__", json.dumps(words).replace("<", "\\u003c"))):
         if placeholder not in html:
             raise SystemExit(f"home.html is missing {placeholder}")

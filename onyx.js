@@ -389,6 +389,14 @@
     // whether or not anyone is pointing at it, so the page rains on its own
     // and the pointer trail is an extra rather than the only way to see any.
     this.rain = +cv.dataset.oxRain || 0;
+    // data-ox-idle: the longest this canvas may go between redraws when
+    // nothing is happening to it, in ms. One global 20fps meant a full-bleed
+    // ambient texture redrew as often as something being pointed at, and on
+    // a slow device that one canvas was 350ms of every second. It also meant
+    // every canvas redrew on the same tick, so the cost arrived in one spike
+    // instead of spread out; lastDraw is seeded at random to stagger them.
+    this.idleGap = +cv.dataset.oxIdle || 48;
+    this.lastDraw = performance.now() - Math.random() * this.idleGap;
     this.lastSpawn = 0; this.lastRain = 0;
     this.resize();
     var self = this;
@@ -441,6 +449,12 @@
     this.shape(mc);
     var px = mc.getImageData(0, 0, mw, mh).data, a = new Float32Array(mw * mh);
     for (var i = 0; i < a.length; i++) a[i] = px[i * 4 + 3] / 255;
+    // A canvas that exists only to carry falling cards has shape "none", so
+    // every one of its cells sampled an empty mask and was thrown away. On the
+    // Rips hero that was fourteen thousand cells of trigonometry a frame, all
+    // of it discarded. Notice once, here, and skip the pass entirely.
+    this.blank = true;
+    for (var bi = 0; bi < a.length; bi++) { if (a[bi] > 0.02) { this.blank = false; break; } }
     this.mask = a; this.mw = mw; this.mh = mh;
     this.w = w; this.h = h;
     return true;
@@ -510,19 +524,42 @@
     if (this.tx < -1e3) { this.mx = this.tx; this.my = this.ty; }
     var R = Math.max(6, this.cols * 0.07), R2 = R * R, rows = this.rows, cols = this.cols;
     var buckets = [[], [], [], [], [], [], [], []];
-    for (var y = 0; y < rows; y++) {
+
+    // Every sine in the cell loop below is a function of x alone, of y alone,
+    // or of x - y. None of them is a function of both, so none of them has to
+    // be evaluated per cell: a 229 x 60 grid did 55,000 of them a frame where
+    // 520 would do. This is the whole of the lag on anything but a fast
+    // desktop; the shapes and the motion are unchanged.
+    var cosX = this.cx13, sinX = this.sx11, diag = this.dg07;
+    if (!this.blank && (!cosX || cosX.length !== cols)) {
+      cosX = this.cx13 = new Float32Array(cols);
+      sinX = this.sx11 = new Float32Array(cols);
+      diag = this.dg07 = new Float32Array(cols + rows + 1);
+    }
+    var swirl = Math.sin(t * 2.2);
+    if (!this.blank) {
+      for (var px = 0; px < cols; px++) {
+        cosX[px] = Math.cos(px * 0.13 + t * 1.1) * 0.25;
+        sinX[px] = Math.sin(px * 0.11 + t * 0.9);
+      }
+      for (var pd = 0; pd < diag.length; pd++) diag[pd] = Math.sin((pd - rows) * 0.07 + t * 1.3);
+    }
+
+    var gridRows = this.blank ? 0 : rows;    // blank: nothing to walk
+    for (var y = 0; y < gridRows; y++) {
       var fade = this.fade ? 1 - 0.62 * (y / rows) : 1;
+      var sw = Math.sin(y * 0.21 + t * 1.4) * 0.55;
+      var cosY = Math.cos(y * 0.19 - t * 0.6);
       for (var x = 0; x < cols; x++) {
         var dx = x - this.mx, dy = (y - this.my) * 1.6, d2 = dx * dx + dy * dy;
         var k = (this.lens && d2 < R2 * 9) ? Math.exp(-d2 / R2) : 0;
         // the lens: cells near the pointer sample the shape further out, so
         // the letters bulge and swirl around it like the onyxodds.com footer
-        var sw = Math.sin(y * 0.21 + t * 1.4) * 0.55;
-        var sx = x + sw - dx * k * 0.42 + dy * k * 0.18 * Math.sin(t * 2.2);
-        var sy = y + Math.cos(x * 0.13 + t * 1.1) * 0.25 - dy / 1.6 * k * 0.42;
+        var sx = x + sw - dx * k * 0.42 + dy * k * 0.18 * swirl;
+        var sy = y + cosX[x] - dy / 1.6 * k * 0.42;
         var m = this.at(sx, sy);
         if (m < 0.08) continue;
-        var v = m * (0.6 + 0.22 * Math.sin(x * 0.11 + t * 0.9) * Math.cos(y * 0.19 - t * 0.6) + 0.18 * Math.sin((x - y) * 0.07 + t * 1.3));
+        var v = m * (0.6 + 0.22 * sinX[x] * cosY + 0.18 * diag[x - y + rows]);
         if (k > 0.02) v += k * 0.45 * Math.sin(Math.sqrt(d2) * 0.7 - t * 6);
         v = v < 0 ? 0 : v > 1 ? 1 : v;
         var ch = RAMP.charAt(1 + Math.floor(v * (L - 1)));
@@ -622,21 +659,26 @@
 
   // one clock for every canvas, only while something is on screen: the one under the
   // pointer redraws every frame so it tracks instantly; idle ones breathe at ~20 fps
-  var last = 0, running = false;
+  var running = false;
   function tick(now) {
     running = false;
     if (document.hidden) return;
-    var idle = now - last > 48;
-    if (idle) last = now;
     var any = false;
     arts.forEach(function (a) {
       if (!a.visible) return;
       any = true;
-      // anything still in the air keeps its canvas on the full frame clock, so
-      // it does not stutter at the idle 20fps once the pointer has gone. A
-      // canvas that rains always has something coming, so it never idles.
+      // Anything still in the air keeps its canvas on the full frame clock, so
+      // it does not stutter once the pointer has gone, and a canvas that rains
+      // always has something coming. Halving that to 30fps was tried and is
+      // worse: the same work arrives in half as many frames, so it lands in
+      // one budget instead of two and drops the frame it lands in. Everything
+      // else redraws at its own cadence, which for an ambient texture nobody
+      // is looking at is far slower than the screen.
       a.pour(now);
-      if (a.hot || a.leaves.length || a.rain || idle) a.draw(now);
+      if (a.hot || a.leaves.length || a.rain || now - a.lastDraw >= a.idleGap) {
+        a.lastDraw = now;
+        a.draw(now);
+      }
     });
     if (any) loop();
   }

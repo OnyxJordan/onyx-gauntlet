@@ -6,6 +6,22 @@
 <meta name="theme-color" content="#0e0a07">
 <title>Onyx Odds — Thanksgiving Leaderboards</title>
 <meta name="description" content="Live Onyx leaderboards: the Mini Games Gauntlet and the Rips Rumble.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Onyx Odds">
+<meta property="og:title" content="Onyx Odds &mdash; Thanksgiving Leaderboards">
+<meta property="og:description" content="Live Onyx leaderboards: the Mini Games Gauntlet and the Rips Rumble.">
+<meta property="og:url" content="__OGURL__">
+<!-- Absolute, because an unfurler fetches it on its own and has no page to be
+     relative to. Without it Slack shows an empty grey box. -->
+<meta property="og:image" content="__SITE__og.png">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Onyx Odds">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Onyx Odds &mdash; Thanksgiving Leaderboards">
+<meta name="twitter:description" content="Live Onyx leaderboards: the Mini Games Gauntlet and the Rips Rumble.">
+<meta name="twitter:image" content="__SITE__og.png">
 <link rel="stylesheet" href="site.css">
 <style>
 /* Homepage only. Everything shared with the board pages is in site.css. */
@@ -96,7 +112,7 @@ div.bcard .btn{color:var(--ox-600);cursor:default}
 
 <section class="hero" data-ox-host>
   <canvas class="hero-art" data-ox-art="field" data-ox-tone="amber" data-ox-fade="0" data-ox-calm=".6"
-          data-ox-lens="0" aria-hidden="true"></canvas>
+          data-ox-lens="0" data-ox-cell="16" data-ox-idle="200" aria-hidden="true"></canvas>
   <canvas class="hero-leaves" data-ox-art="none" data-ox-lens="0" data-ox-cell="9"
           data-ox-leaves data-ox-leaf-tone="ember" aria-hidden="true"></canvas>
   <div class="wrap hero-in">
