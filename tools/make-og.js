@@ -61,6 +61,22 @@ html,body{width:1200px;height:630px;background:${BG};overflow:hidden}
   await p.waitForTimeout(400);
   const out = path.join(ROOT, 'og.png');
   await p.screenshot({path: out});
+
+  // A square one as well: the browser tab, the phone home screen, and the
+  // small thumbnail some clients use instead of the wide card.
+  const sq = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0}html,body{width:512px;height:512px;background:${BG}}
+.b{width:512px;height:512px;display:flex;align-items:center;justify-content:center}
+svg{height:300px;width:auto;color:${ACCENT};display:block}
+</style></head><body><div class="b">
+<svg viewBox="0 0 100 137" fill="currentColor"><path d="${MARK}"/></svg>
+</div></body></html>`;
+  const q = await b.newPage({viewport: {width: 512, height: 512}});
+  await q.setContent(sq, {waitUntil: 'load'});
+  await q.waitForTimeout(200);
+  const iconPath = path.join(ROOT, 'icon.png');
+  await q.screenshot({path: iconPath});
+
   await b.close();
-  console.log('wrote ' + out + '  bg ' + BG + '  accent ' + ACCENT);
+  console.log('wrote ' + out + ' and ' + iconPath + '  bg ' + BG + '  accent ' + ACCENT);
 })();
