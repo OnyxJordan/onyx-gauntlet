@@ -76,6 +76,11 @@ SELECT
   COALESCE(u."userId", '')                                  AS user_id,
   COALESCE(u."username", u."name", u."userId", '(unknown)') AS username,
   COUNT(*)                                                  AS rounds,
+  /* How many players qualified in total, carried on every row. The query is
+     limited to the ranks the page lists, so counting the rows that come back
+     would report the cap instead of the field: 1,000 when 6,600 entered.
+     Window functions are evaluated before LIMIT, so this is the true count. */
+  COUNT(*) OVER ()                                          AS field,
   ROUND(SUM(rwt."amountCents")::numeric / 100.0, 2)         AS handle
 FROM "RipsWalletTransaction" rwt
 JOIN "User" u ON u.id = rwt."userId"
@@ -94,6 +99,11 @@ LIMIT 1000
 A pack purchase is a `DEBIT` row. `CREDIT`, `SELLBACK`, `HOLD`, `WITHDRAW` and
 `REFUND` are the other side of the ledger and are deliberately not counted, so
 this is total spent on packs, which is what "stake" means here.
+
+`COUNT(*) OVER () AS field` is how the page knows the real size of the field.
+The query stops at the top 1,000, so counting the rows that come back would
+report 1,000 when 6,600 players entered. Window functions run before `LIMIT`,
+so that column is the true count on every row.
 
 Regenerate this any time with `python3 build.py --print-sql scheduled --board rumble`.
 
@@ -169,3 +179,21 @@ home: wrote .../index.html: 2 boards, 30,000 in total prizes
 If instead it says `rumble: NOT published: gauntlet_standings has no row 2 yet`,
 step 2 has not run. If it says the parked standings cover different dates, the
 dates in step 2b and in `boards/rumble.json` disagree.
+
+---
+
+## Optional: the same fix for the Gauntlet's player count
+
+The Gauntlet's query has the same `LIMIT 1000`, so its **Players** tile reads
+exactly 1,000 whenever more than a thousand people qualify, which is now the
+case. Its page already handles the fix; the query just has to carry the count.
+
+In `gauntlet-refresh` → block `standings`, add this one line to the SELECT list,
+right after the `AS rounds` line:
+
+```sql
+  COUNT(*) OVER ()                                          AS field,
+```
+
+Nothing else changes and the page keeps working either way: without it the tile
+shows the listed rows, exactly as it does today.

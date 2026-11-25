@@ -243,6 +243,24 @@ def unwrap(payload):
     return []
 
 
+def take(cfg, rows):
+    """Read a board's standings rows: the ordered usernames, and how many
+    players qualified in total.
+
+    The query is limited to the ranks the page lists, so len(rows) is the cap,
+    not the field. Each row carries `field`, a COUNT(*) OVER () computed before
+    that limit, which is the real number. A payload parked before that column
+    existed has no `field`, and then the row count is the best available
+    answer and also the old behaviour."""
+    for row in rows:
+        if isinstance(row, dict) and str(row.get("field", "")).strip().isdigit():
+            cfg["_field"] = int(row["field"])
+            break
+    else:
+        cfg.pop("_field", None)
+    return usernames(rows)
+
+
 def usernames(rows):
     """Pull the username out of standings rows, preserving the query's order."""
     out = []
@@ -326,7 +344,7 @@ def from_retool_db(cfg):
         raise Skip("the parked payload is empty")
     print(f"read {len(rows)} rows straight from retool_db, no workflow run spent",
           file=sys.stderr)
-    return usernames(rows)
+    return take(cfg, rows)
 
 
 # The webhook answer, kept for the rest of the run. One call returns every
@@ -391,7 +409,7 @@ def from_retool(cfg, timeout=600):
         rows = unwrap(payload)
         if not rows:
             raise SystemExit(f"the parked payload for {cfg['slug']} is empty")
-        return usernames(rows)
+        return take(cfg, rows)
     url = os.environ.get("RETOOL_WEBHOOK_URL", "").strip()
     key = os.environ.get("RETOOL_WORKFLOW_KEY", "").strip()
     if not url:
@@ -444,7 +462,7 @@ def from_retool(cfg, timeout=600):
                     "Add a Response block returning code1's data, then publish.")
         raise SystemExit("Retool webhook returned no standings rows. "
                          f"It returned:\n{json.dumps(payload)[:300]}{hint}")
-    return usernames(rows)
+    return take(cfg, rows)
 
 
 # --------------------------------------------------------------------------
@@ -716,7 +734,8 @@ def report(names):
 
 def render(names, cfg, when, deltas=None, template=TEMPLATE, stamp=None):
     table = cfg["prize_table"]
-    total = len(names)
+    # The field, not the page. See take(): the query stops at the cap.
+    total = max(cfg.get("_field") or 0, len(names))
     shown = names[: int(cfg.get("cap", 1000))]
     deltas = deltas or [None] * len(shown)
     rows = [
@@ -1005,7 +1024,7 @@ def build_board(slug, args):
         path = Path(str(args.json_file).replace("{board}", slug))
         payload = json.loads(path.read_text())
         capture_as_of(cfg, payload)
-        names = usernames(unwrap(payload))
+        names = take(cfg, unwrap(payload))
     elif args.source == "retool":
         names = from_retool(cfg)
     else:
@@ -1030,6 +1049,8 @@ def build_board(slug, args):
         # a place and changes who is paid, so it belongs in the run log.
         print(f"{slug}: excluded {dropped} named "
               f"{'player' if dropped == 1 else 'players'}", file=sys.stderr)
+        if cfg.get("_field"):
+            cfg["_field"] -= dropped
     report(names)
     if not names:
         raise SystemExit("no usable standings; aborting before write so the live page stands.")

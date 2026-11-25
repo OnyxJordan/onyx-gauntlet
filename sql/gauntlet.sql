@@ -20,6 +20,11 @@ SELECT
   COALESCE(u."userId", '')                                  AS user_id,
   COALESCE(u."username", u."name", u."userId", '(unknown)') AS username,
   COUNT(*)                                                  AS rounds,
+  /* How many players qualified in total, carried on every row. The query is
+     limited to the ranks the page lists, so counting the rows that come back
+     would report the cap instead of the field: 1,000 when 6,600 entered.
+     Window functions are evaluated before LIMIT, so this is the true count. */
+  COUNT(*) OVER ()                                          AS field,
   ROUND(SUM(tpb."stakeCents")::numeric / 100.0, 2)          AS handle
 FROM "ThirdPartyBet" tpb
 JOIN "Balance" bal ON bal.id = tpb."balanceId" AND bal.type = 'SWEEP'
