@@ -272,12 +272,12 @@
       // thick the outline, because at thirteen cells there is no room for a
       // card edge, a frame, a halo and a ball all at once.
       //
-      // No laces, tried twice. Three ticks took a third of the ball and what
-      // was left read as dots; two landed on one cell and fell between the
-      // next, so one drew and one did not, which reads as damage. At thirteen
-      // cells the tapered ends are the whole signal, and they are what
-      // separates it from the round capsule, so the shape gets all the room.
-      // tools/shape-grid.js shows this in two seconds.
+      // The laces are why the card is the size it is. At thirteen cells across
+      // there was no room for them: three ticks took a third of the ball and
+      // read as dots, two landed one on a cell and one between cells so only
+      // one drew. The card is nearly twice that now and the ball is a dozen
+      // cells wide, which is enough for four of them a cell apart.
+      // tools/shape-grid.js shows whether they land, at the size they land at.
       c.save(); c.globalCompositeOperation = 'destination-out';
       c.beginPath(); plate(c, w * 0.23, h * 0.21, w * 0.77, h * 0.79, r * 0.6); c.fill();
       c.restore();
@@ -287,6 +287,13 @@
       c.bezierCurveTo(-0.62, -0.72, 0.62, -0.72, 1.02, 0);
       c.bezierCurveTo(0.62, 0.72, -0.62, 0.72, -1.02, 0);
       c.fill(); c.restore();
+      c.save(); c.globalCompositeOperation = 'destination-out';
+      c.lineWidth = w * 0.06; c.lineCap = 'butt'; c.beginPath();
+      for (var i = -1.0; i <= 1.0; i++) {
+        var lx = cx + i * w * 0.13;
+        c.moveTo(lx, cy - h * 0.072); c.lineTo(lx, cy + h * 0.072);
+      }
+      c.stroke(); c.restore();
     }); },
     acorn: function (c) {
       ball(c, function (c) {
@@ -445,13 +452,15 @@
     // desktop does, so a card sized for the desktop hero covered a quarter of
     // the phone one. Scale the size and the count with the width of the grid.
     var k = this.flat ? Math.max(0.45, Math.min(1, this.cols / 150)) : 1;
-    if (this.leaves.length > (this.flat ? Math.max(6, Math.round(16 * k)) : 46)) return;
+    if (this.leaves.length > (this.flat ? Math.max(4, Math.round(9 * k)) : 46)) return;
     var r = Math.random;
     this.leaves.push({
       x: x + (r() - 0.5) * 2.2, y: y + (r() - 0.5) * 1.3,
       // In cells. A card needs more than a leaf: it is read by its straight
       // edges and its frame, and both need several cells each to exist.
-      r: this.flat ? (6.6 + r() * 2.6) * k : 7.2 + r() * 4.6,
+      // Cards are big: a smaller one has no room for the laces, which is the
+      // detail that makes the football a football rather than a lozenge.
+      r: this.flat ? (13.5 + r() * 5) * k : 7.2 + r() * 4.6,
       // A card barely turns. Even a slow spin walks it to 90 degrees over a
       // ten second fall, and on its edge it is a stick, not a card.
       sh: this.fallShapes[(r() * this.fallShapes.length) | 0],

@@ -18,7 +18,7 @@
   "art": {
     "fall": "cardBall,cardSport",
     "fall_tone": "amber",
-    "rain": 1.6,
+    "rain": 1.5,
     "crest": "cardBall",
     "row": [["cardBall", "ember"], ["cardSport", "wheat"], ["turkey", "amber"], ["cardSport", "cranberry"], ["cardBall", "wheat"]]
   },
