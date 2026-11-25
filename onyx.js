@@ -77,7 +77,7 @@
     // The frame has to be about one cell wide at the size it falls at, or it
     // lands between two cells and is not drawn at all.
     cut(c, function (c) { plate(c, w * 0.21, h * 0.17, w * 0.79, h * 0.83, r * 0.7); }, w * 0.055);
-    emblem(c, w, h);
+    emblem(c, w, h, plate, r);
   }
   // Half an outline, right side only, top to bottom; the left is mirrored from
   // it so the shape cannot come out lopsided.
@@ -266,17 +266,27 @@
       c.save(); c.globalCompositeOperation = 'destination-out';
       c.beginPath(); c.arc(cx, cy, R * 0.36, 0, 7); c.fill(); c.restore();
     }); },
-    cardSport: function (c) { cardFace(c, function (c, w, h) {
+    cardSport: function (c) { cardFace(c, function (c, w, h, plate, r) {
+      // A football. The card's inner panel goes dark and the ball is lit
+      // inside it: a light ball on a light card merges into the frame however
+      // thick the outline, because at thirteen cells there is no room for a
+      // card edge, a frame, a halo and a ball all at once.
+      //
+      // No laces, tried twice. Three ticks took a third of the ball and what
+      // was left read as dots; two landed on one cell and fell between the
+      // next, so one drew and one did not, which reads as damage. At thirteen
+      // cells the tapered ends are the whole signal, and they are what
+      // separates it from the round capsule, so the shape gets all the room.
+      // tools/shape-grid.js shows this in two seconds.
       c.save(); c.globalCompositeOperation = 'destination-out';
-      c.translate(w / 2, h / 2); c.rotate(-0.5); c.scale(w * 0.26, w * 0.26);
-      c.beginPath(); c.moveTo(-1, 0);
-      c.bezierCurveTo(-0.6, -0.78, 0.6, -0.78, 1, 0);
-      c.bezierCurveTo(0.6, 0.78, -0.6, 0.78, -1, 0);
-      c.fill(); c.restore();
-      c.save(); c.translate(w / 2, h / 2); c.rotate(-0.5);
-      c.lineWidth = w * 0.035; c.beginPath();
-      c.moveTo(-w * 0.09, 0); c.lineTo(w * 0.09, 0); c.stroke();
+      c.beginPath(); plate(c, w * 0.23, h * 0.21, w * 0.77, h * 0.79, r * 0.6); c.fill();
       c.restore();
+      var cx = w / 2, cy = h / 2;
+      c.save(); c.translate(cx, cy); c.scale(w * 0.26, w * 0.38);
+      c.beginPath(); c.moveTo(-1.02, 0);
+      c.bezierCurveTo(-0.62, -0.72, 0.62, -0.72, 1.02, 0);
+      c.bezierCurveTo(0.62, 0.72, -0.62, 0.72, -1.02, 0);
+      c.fill(); c.restore();
     }); },
     acorn: function (c) {
       ball(c, function (c) {
