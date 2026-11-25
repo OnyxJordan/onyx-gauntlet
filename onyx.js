@@ -60,6 +60,25 @@
       cut(c, function (c) { c.moveTo(-0.78, -0.3); c.quadraticCurveTo(-0.66, 0, -0.78, 0.3); c.moveTo(0.78, -0.3); c.quadraticCurveTo(0.66, 0, 0.78, 0.3); }, 0.05);
     });
   }
+  // A card: a rounded plate, an inset frame line, and whatever emblem the
+  // face knocks out of the middle.
+  function cardFace(c, emblem) {
+    var w = c.canvas.width, h = c.canvas.height;
+    var px = w * 0.05, py = h * 0.02, r = w * 0.06;
+    function plate(c, x0, y0, x1, y1, r) {
+      c.moveTo(x0 + r, y0);
+      c.lineTo(x1 - r, y0); c.quadraticCurveTo(x1, y0, x1, y0 + r);
+      c.lineTo(x1, y1 - r); c.quadraticCurveTo(x1, y1, x1 - r, y1);
+      c.lineTo(x0 + r, y1); c.quadraticCurveTo(x0, y1, x0, y1 - r);
+      c.lineTo(x0, y0 + r); c.quadraticCurveTo(x0, y0, x0 + r, y0);
+      c.closePath();
+    }
+    c.beginPath(); plate(c, px, py, w - px, h - py, r); c.fill();
+    // The frame has to be about one cell wide at the size it falls at, or it
+    // lands between two cells and is not drawn at all.
+    cut(c, function (c) { plate(c, w * 0.21, h * 0.17, w * 0.79, h * 0.83, r * 0.7); }, w * 0.055);
+    emblem(c, w, h);
+  }
   // Half an outline, right side only, top to bottom; the left is mirrored from
   // it so the shape cannot come out lopsided.
   function mirrored(c, pts) {
@@ -229,31 +248,36 @@
         }, 0.05);
       });
     },
-    // A trading card, for the Rips board: the thing the product is about.
+    // Trading cards, for the Rips board: two faces, so the rain reads as a
+    // mix of cards rather than one shape repeating.
     //
-    // It fills the mask square edge to edge and the particle gives it its
-    // portrait shape, because a card drawn small inside the square came out
-    // nearly square once sampled. And it is a plate with one frame line and
-    // nothing else: an emblem and a text bar both looked right at 56 pixels
-    // and then ate half the card at the dozen cells it actually falls at.
-    card: function (c) {
-      var w = c.canvas.width, h = c.canvas.height;
-      var px = w * 0.05, py = h * 0.02, r = w * 0.06;
-      function plate(c, x0, y0, x1, y1, r) {
-        c.moveTo(x0 + r, y0);
-        c.lineTo(x1 - r, y0); c.quadraticCurveTo(x1, y0, x1, y0 + r);
-        c.lineTo(x1, y1 - r); c.quadraticCurveTo(x1, y1, x1 - r, y1);
-        c.lineTo(x0 + r, y1); c.quadraticCurveTo(x0, y1, x0, y1 - r);
-        c.lineTo(x0, y0 + r); c.quadraticCurveTo(x0, y0, x0 + r, y0);
-        c.closePath();
-      }
-      c.beginPath(); plate(c, px, py, w - px, h - py, r); c.fill();
-      // The frame has to be about one cell wide at the size it falls at, or
-      // it lands between two cells and is not drawn at all.
-      cut(c, function (c) {
-        plate(c, w * 0.21, h * 0.17, w * 0.79, h * 0.83, r * 0.7);
-      }, w * 0.055);
-    },
+    // The card fills the mask square and the particle gives it its portrait
+    // shape, because a card drawn small inside the square sampled out nearly
+    // square. Everything on it is sized against the thirteen cells it is
+    // actually seen at, not the 56-pixel mask it is drawn in.
+    //
+    // The capsule is ours: a ball split by a band, with the Onyx mark for the
+    // button. Not the red-and-white one, which is Nintendo's.
+    cardBall: function (c) { cardFace(c, function (c, w, h) {
+      var R = w * 0.25, cx = w / 2, cy = h / 2;
+      c.save(); c.globalCompositeOperation = 'destination-out';
+      c.beginPath(); c.arc(cx, cy, R, 0, 7); c.fill(); c.restore();
+      c.beginPath(); c.rect(cx - R, cy - R * 0.2, R * 2, R * 0.4); c.fill();
+      c.save(); c.globalCompositeOperation = 'destination-out';
+      c.beginPath(); c.arc(cx, cy, R * 0.36, 0, 7); c.fill(); c.restore();
+    }); },
+    cardSport: function (c) { cardFace(c, function (c, w, h) {
+      c.save(); c.globalCompositeOperation = 'destination-out';
+      c.translate(w / 2, h / 2); c.rotate(-0.5); c.scale(w * 0.26, w * 0.26);
+      c.beginPath(); c.moveTo(-1, 0);
+      c.bezierCurveTo(-0.6, -0.78, 0.6, -0.78, 1, 0);
+      c.bezierCurveTo(0.6, 0.78, -0.6, 0.78, -1, 0);
+      c.fill(); c.restore();
+      c.save(); c.translate(w / 2, h / 2); c.rotate(-0.5);
+      c.lineWidth = w * 0.035; c.beginPath();
+      c.moveTo(-w * 0.09, 0); c.lineTo(w * 0.09, 0); c.stroke();
+      c.restore();
+    }); },
     acorn: function (c) {
       ball(c, function (c) {
         c.beginPath(); c.moveTo(-0.66, -0.16);
@@ -302,6 +326,9 @@
   // size. So a leaf on the wind is the same shape as the one in the harvest
   // row rather than a lookalike, and a board can fall something else entirely
   // by naming it: data-ox-leaves="card".
+  // Exposed so the shape grid can be inspected at the size it is drawn at.
+  if (typeof window !== 'undefined') window.__oxShapes = SHAPES;
+
   var LEAFN = 56, FALLMASKS = {};
   function fallMask(name) {
     if (FALLMASKS[name]) return FALLMASKS[name];
@@ -332,10 +359,14 @@
     // They keep falling after the pointer has gone, which is the whole charm
     // of it, so the frame loop stays awake while any are still in the air.
     this.leaves = []; this.leavesOn = cv.dataset.oxLeaves !== undefined;
-    // data-ox-leaves="card" falls cards instead; bare or empty keeps leaves.
-    this.fallShape = cv.dataset.oxLeaves || 'leaf';
+    // data-ox-leaves names what falls. A comma separated list falls a mix,
+    // picked per particle: one shape repeating reads as a pattern, not as a
+    // handful of cards.
+    this.fallShapes = (cv.dataset.oxLeaves || 'leaf').split(',')
+      .map(function (s) { return s.trim(); }).filter(Boolean);
+    this.fallShape = this.fallShapes[0];
     // Flat things keep their face to the viewer and rock; only a leaf tumbles.
-    this.flat = this.fallShape === 'card';
+    this.flat = this.fallShapes.every(function (s) { return s.indexOf('card') === 0; });
     this.leafTone = TONES[cv.dataset.oxLeafTone] || TONES.ember;
     // data-ox-rain="1.6": that many a second drift in from above the canvas
     // whether or not anyone is pointing at it, so the page rains on its own
@@ -404,7 +435,7 @@
     // desktop does, so a card sized for the desktop hero covered a quarter of
     // the phone one. Scale the size and the count with the width of the grid.
     var k = this.flat ? Math.max(0.45, Math.min(1, this.cols / 150)) : 1;
-    if (this.leaves.length > (this.flat ? Math.max(4, Math.round(9 * k)) : 46)) return;
+    if (this.leaves.length > (this.flat ? Math.max(6, Math.round(16 * k)) : 46)) return;
     var r = Math.random;
     this.leaves.push({
       x: x + (r() - 0.5) * 2.2, y: y + (r() - 0.5) * 1.3,
@@ -413,17 +444,25 @@
       r: this.flat ? (6.6 + r() * 2.6) * k : 7.2 + r() * 4.6,
       // A card barely turns. Even a slow spin walks it to 90 degrees over a
       // ten second fall, and on its edge it is a stick, not a card.
+      sh: this.fallShapes[(r() * this.fallShapes.length) | 0],
       rot: this.flat ? (r() - 0.5) * 0.36 : r() * 6.283,
       spin: (r() - 0.5) * (this.flat ? 0.1 : 3.4),
       // thrown along the swipe, then it bleeds off and it falls. One that
       // drifted in from above was never thrown, so it starts on the fall.
       vx: drifting ? (r() - 0.5) * 2.2 : (this.pvx || 0) * 0.3 + (r() - 0.5) * 3,
-      vy: drifting ? 1.4 + r() * 1.6 : (this.pvy || 0) * 0.22 + (r() - 0.5) * 2,
-      term: 2.6 + r() * 3.6,                // the speed it settles to falling at
+      // One that drifted in from above is already falling when it arrives,
+      // rather than accelerating from nothing just inside the top edge.
+      vy: drifting ? (this.flat ? 9 + r() * 6 : 1.4 + r() * 1.6)
+                   : (this.pvy || 0) * 0.22 + (r() - 0.5) * 2,
+      // The speed it settles to falling at, in cells a second. A card falls
+      // several times faster than a leaf: at the leaf's pace it needed twenty
+      // seconds to cross the hero, so it faded out halfway down and the rain
+      // read as stuck rather than falling.
+      term: this.flat ? 15 + r() * 9 : 2.6 + r() * 3.6,
       swayA: 1.4 + r() * 3, swayF: 0.8 + r() * 1.5, ph: r() * 6.283,
       // long enough to cross the hero rather than fade out halfway down it
-      age: 0, life: drifting ? (this.flat ? 6.5 + r() * 3 : 9 + r() * 5)
-                              : 4.2 + r() * 3.4
+      age: 0, life: drifting ? (this.flat ? 7 + r() * 3 : 9 + r() * 5)
+                              : (this.flat ? 5 + r() * 2 : 4.2 + r() * 3.4)
     });
   };
   // Drop whatever is due from above the top edge. Called each frame; the rate
@@ -513,7 +552,7 @@
         // The leaf itself, sampled from the real maple silhouette rather than
         // approximated. A lobed blob never read as a leaf at any size; this is
         // the same shape the harvest row draws, rotated per particle.
-        var LM = fallMask(this.fallShape), LN = LEAFN;
+        var LM = fallMask(lf.sh || this.fallShape), LN = LEAFN;
         var cs = Math.cos(lf.rot), sn = Math.sin(lf.rot);
         // A card is taller than it is wide; a leaf is drawn in a square.
         var rx = this.flat ? lf.r * 0.72 : lf.r, ry = lf.r;

@@ -16,11 +16,11 @@
 
   "_art_comment": "Rips rains cards instead of leaves, because the board is about ripping packs. 'rain' means they keep coming without anyone touching the page; the pointer still sheds a trail on top of that. The cards are plain trading cards drawn by the raster engine, not any publisher's artwork or trade dress.",
   "art": {
-    "fall": "card",
+    "fall": "cardBall,cardSport",
     "fall_tone": "amber",
-    "rain": 0.9,
-    "crest": "card",
-    "row": [["card", "ember"], ["card", "wheat"], ["turkey", "amber"], ["card", "cranberry"], ["card", "wheat"]]
+    "rain": 1.6,
+    "crest": "cardBall",
+    "row": [["cardBall", "ember"], ["cardSport", "wheat"], ["turkey", "amber"], ["cardSport", "cranberry"], ["cardBall", "wheat"]]
   },
 
   "_absent_comment": "Shown when a search finds nobody. Replaced automatically when the field is larger than the board, which is then the real reason.",
