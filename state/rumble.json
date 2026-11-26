@@ -1,0 +1,33 @@
+{
+"_comment": "Movement state for the Move column, which reports movement over 24 hours. Each history entry is one standings snapshot, players in rank order, keyed by a truncated sha256 of the username. Delete this file to reset every arrow to New.",
+"history": [
+{
+"as_of": "2026-11-26T05:06:05.200000+00:00",
+"order": [
+"8c4720ab7b308d8f",
+"c90e0490701b1e33",
+"aaad38d9a7fbea18",
+"e0eaaed8361c3d74",
+"e26842d491026998",
+"0d0265c766a4079d",
+"6a545bfa1373b3df",
+"91b29dd1c880e9cf",
+"4ba06d79027530d7",
+"fef72346f0b9d10e",
+"d2c51231f2a772be",
+"07a7f71e130f91be",
+"20f460190f419b3e",
+"2fdcbe275b89b97b",
+"98726536d0ab7ba4",
+"4b4db0f3f703f982",
+"c928978331ef4d6c",
+"afe813c699884a18",
+"e1ebcb5a5e83d827",
+"b87c00ff61af7326",
+"e297f598eab9fd0d"
+]
+}
+],
+"window_hours": 24,
+"written_at": "2026-11-26T00:06:05.200000-05:00"
+}
